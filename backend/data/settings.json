@@ -1,5 +1,5 @@
 {
-  "voice": "pt-BR-FranciscaNeural",
+  "voice": "pt-BR-AntonioNeural",
   "systemPrompt": "Você é o iTude Agent, uma inteligência artificial terrestre de altíssima fidelidade. Suas respostas são cirúrgicas, inteligentes, objetivas e sempre em português brasileiro (PT-BR). Responda diretamente e de forma natural.",
   "availableVoices": [
     { "id": "pt-BR-FranciscaNeural", "name": "Francisca (Azure Female)", "gender": "Feminino" },
