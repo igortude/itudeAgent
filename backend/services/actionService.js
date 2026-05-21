@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 
-// Carregar o mapeamento de ações
 const actionsPath = path.join(__dirname, '..', 'data', 'actions.json');
 let actionsConfig = { actions: [] };
 
@@ -14,107 +13,172 @@ try {
 }
 
 /**
- * Analisa o texto do usuário para detectar se é um comando de ação local.
- * Retorna um objeto de ação ou null se for apenas uma pergunta normal de conversa.
- * 
- * @param {string} text - Texto transcrito pelo STT.
- * @returns {{ category: string, target: string, binary: string, description: string } | null}
+ * Detecta se o texto é um comando de ação.
+ * Retorna o objeto com flags de compound/search ou null se for conversa normal.
  */
 function detectAction(text) {
-  const normalizedText = text.toLowerCase().trim();
+  const n = text.toLowerCase().trim();
 
-  for (const actionGroup of actionsConfig.actions) {
-    for (const keyword of actionGroup.keywords) {
-      if (normalizedText.startsWith(keyword) || normalizedText.includes(keyword)) {
-        // Encontrou uma keyword de ação. Agora procurar o alvo.
-        for (const [targetName, targetInfo] of Object.entries(actionGroup.targets)) {
-          if (normalizedText.includes(targetName)) {
-            return {
-              category: actionGroup.category,
-              target: targetName,
-              binary: targetInfo.binary,
-              description: targetInfo.description
-            };
+  for (const group of actionsConfig.actions) {
+    for (const kw of group.keywords) {
+      if (!n.includes(kw)) continue;
+
+      // ─── Categoria SEARCH (sem alvo específico) ───
+      if (group.category === 'search') {
+        const query = extractAfterKeyword(n, kw);
+        if (query.length > 1) {
+          return {
+            category: 'search',
+            target: 'google',
+            binary: 'google-chrome',
+            description: 'Pesquisa no Google',
+            argument: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+            compound: false
+          };
+        }
+      }
+
+      // ─── Categorias com alvos mapeados ───
+      for (const [tName, tInfo] of Object.entries(group.targets)) {
+        if (!n.includes(tName)) continue;
+
+        // Se for ação composta (ex: tocar música → perguntar qual)
+        if (tInfo.compound) {
+          return {
+            category: group.category,
+            target: tName,
+            binary: tInfo.binary,
+            description: tInfo.description,
+            compound: true,
+            followUp: tInfo.followUp,
+            searchCommand: tInfo.searchCommand || null
+          };
+        }
+
+        // Ação simples — extrair argumento (ex: "pesquise por X")
+        let argument = null;
+        const remainder = n.substring(n.indexOf(tName) + tName.length).trim();
+        const searchPatterns = [
+          'pesquise por', 'pesquisa por', 'procure por', 'busque por',
+          'pesquise', 'pesquisa', 'procure', 'busque',
+          'e pesquise por', 'e pesquisa por', 'e procure por',
+          'e pesquise', 'e pesquisa', 'e procure'
+        ];
+        for (const pat of searchPatterns) {
+          if (remainder.includes(pat)) {
+            let q = remainder.split(pat).pop().trim();
+            q = q.replace(/\b(no google|na web|na internet)\b/gi, '').trim();
+            if (q) { argument = `https://www.google.com/search?q=${encodeURIComponent(q)}`; }
+            break;
           }
         }
-        
-        // Keyword encontrada mas alvo não reconhecido
-        // Extrair o que vem depois da keyword como alvo genérico
-        const afterKeyword = normalizedText.split(keyword).pop().trim();
-        if (afterKeyword.length > 0) {
+
+        return {
+          category: group.category,
+          target: tName,
+          binary: tInfo.binary,
+          description: tInfo.description,
+          argument,
+          compound: false
+        };
+      }
+
+      // Keyword detectada mas alvo NÃO mapeado
+      if (group.category !== 'search') {
+        let clean = extractAfterKeyword(n, kw);
+        if (clean.length > 1) {
           return {
-            category: actionGroup.category,
-            target: afterKeyword,
-            binary: null, // Alvo não mapeado
-            description: `Alvo desconhecido: "${afterKeyword}"`
+            category: group.category,
+            target: clean,
+            binary: null,
+            description: `Alvo desconhecido: "${clean}"`,
+            argument: null,
+            compound: false
           };
         }
       }
     }
   }
 
-  return null; // Não é um comando de ação, é conversa normal
+  return null;
+}
+
+/** Extrai texto após keyword, removendo artigos */
+function extractAfterKeyword(text, keyword) {
+  return text.split(keyword).pop().trim().replace(/^(o|a|os|as|um|uma|uns|umas)\s+/i, '').trim();
 }
 
 /**
- * Executa a ação detectada no sistema operacional.
- * 
- * @param {{ category: string, target: string, binary: string, description: string }} action
- * @returns {Promise<string>} Mensagem de resultado da ação.
+ * Executa uma ação simples no SO.
  */
 async function executeAction(action) {
   if (!action.binary) {
-    return `Não encontrei o programa "${action.target}" no meu mapa de ações. Você pode adicioná-lo ao arquivo de configuração.`;
+    return `Não encontrei "${action.target}" no meu mapa de ações.`;
   }
 
   return new Promise((resolve) => {
-    if (action.category === 'open') {
-      // Abrir o programa em background (detached) para não bloquear o Node
-      const child = exec(`nohup ${action.binary} > /dev/null 2>&1 &`, (error) => {
-        if (error) {
-          console.error(`[ActionService] Erro ao abrir ${action.binary}:`, error.message);
-          resolve(`Não consegui abrir o ${action.description}. Verifique se ele está instalado no sistema.`);
+    if (action.category === 'open' || action.category === 'play' || action.category === 'search') {
+      const cmd = action.argument
+        ? `nohup ${action.binary} "${action.argument}" > /dev/null 2>&1 &`
+        : `nohup ${action.binary} > /dev/null 2>&1 &`;
+
+      exec(cmd, (err) => {
+        if (err) {
+          resolve(`Erro ao abrir ${action.description}: ${err.message}`);
         } else {
-          resolve(`Pronto. O ${action.description} foi aberto com sucesso.`);
+          const detail = action.argument ? ' e direcionei para o destino solicitado' : '';
+          resolve(`Pronto. ${action.description} iniciado${detail}.`);
         }
       });
-      
-      // Se o exec não retornou erro em 2 segundos, assumir sucesso
       setTimeout(() => {
-        resolve(`Pronto. O ${action.description} foi aberto com sucesso.`);
-      }, 2000);
+        const detail = action.argument ? ' e direcionei para o destino' : '';
+        resolve(`Pronto. ${action.description} foi iniciado${detail}.`);
+      }, 1500);
 
     } else if (action.category === 'close') {
-      exec(`pkill -f ${action.binary}`, (error) => {
-        if (error) {
-          resolve(`Não encontrei o processo do ${action.description} para encerrar.`);
-        } else {
-          resolve(`Pronto. O ${action.description} foi encerrado.`);
-        }
+      let killCmd = `pkill -f "${action.binary}"`;
+      if (action.binary.includes('flatpak') || action.binary.includes('app.')) {
+        const appId = action.binary.split(' ').pop();
+        killCmd = `flatpak kill ${appId} 2>/dev/null; pkill -f "${appId}"`;
+      }
+      exec(killCmd, (err) => {
+        resolve(err ? `Não encontrei o processo do ${action.description} ativo.` : `${action.description} encerrado.`);
       });
 
     } else {
-      resolve(`Não sei como executar a ação "${action.category}" ainda.`);
+      resolve(`Ainda não sei executar "${action.category}".`);
     }
   });
 }
 
 /**
- * Recarrega o arquivo de ações do disco (para atualizações em tempo real).
+ * Executa a busca composta dentro de um app já aberto (via xdotool).
  */
+async function executeCompoundSearch(searchCommand, query) {
+  const finalCmd = searchCommand.replace(/\{query\}/g, query);
+  console.log(`[ActionService] Compound search: ${finalCmd}`);
+
+  return new Promise((resolve) => {
+    exec(finalCmd, { timeout: 15000 }, (err) => {
+      if (err) {
+        console.error('[ActionService] Compound search error:', err.message);
+        resolve(`Tentei pesquisar "${query}", mas encontrei um erro na automação.`);
+      } else {
+        resolve(`Pronto. Pesquisei e selecionei "${query}" para você.`);
+      }
+    });
+  });
+}
+
 function reloadActions() {
   try {
     actionsConfig = JSON.parse(fs.readFileSync(actionsPath, 'utf-8'));
-    console.log('[ActionService] Ações recarregadas com sucesso.');
+    console.log('[ActionService] Ações recarregadas.');
     return true;
-  } catch (error) {
-    console.error('[ActionService] Erro ao recarregar ações:', error.message);
+  } catch (e) {
+    console.error('[ActionService] Erro ao recarregar:', e.message);
     return false;
   }
 }
 
-module.exports = {
-  detectAction,
-  executeAction,
-  reloadActions
-};
+module.exports = { detectAction, executeAction, executeCompoundSearch, reloadActions };

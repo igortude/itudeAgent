@@ -20,6 +20,18 @@
           "binary": "google-chrome",
           "description": "Navegador Google Chrome"
         },
+        "player": {
+          "binary": "flatpak run app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music"
+        },
+        "youtube music": {
+          "binary": "flatpak run app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music"
+        },
+        "ytmdesktop": {
+          "binary": "flatpak run app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music"
+        },
         "firefox": {
           "binary": "firefox",
           "description": "Navegador Mozilla Firefox"
@@ -116,6 +128,18 @@
           "binary": "google-chrome",
           "description": "Navegador Google Chrome"
         },
+        "player": {
+          "binary": "app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music"
+        },
+        "youtube music": {
+          "binary": "app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music"
+        },
+        "ytmdesktop": {
+          "binary": "app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music"
+        },
         "firefox": {
           "binary": "firefox",
           "description": "Navegador Mozilla Firefox"
@@ -145,6 +169,31 @@
           "description": "Whatsapp"
         }
       }
+    },
+    {
+      "keywords": ["toque", "tocar", "coloque", "reproduza", "reproduzir", "play", "ponha"],
+      "category": "play",
+      "targets": {
+        "música": {
+          "binary": "flatpak run app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music",
+          "compound": true,
+          "followUp": "O que você deseja ouvir, senhor?",
+          "searchCommand": "xdotool search --name 'YouTube Music' windowactivate --sync && sleep 0.8 && xdotool key slash && sleep 0.5 && xdotool type --clearmodifiers --delay 40 '{query}' && sleep 0.3 && xdotool key Return"
+        },
+        "uma música": {
+          "binary": "flatpak run app.ytmdesktop.ytmdesktop",
+          "description": "Player de Música YouTube Music",
+          "compound": true,
+          "followUp": "O que você deseja ouvir, senhor?",
+          "searchCommand": "xdotool search --name 'YouTube Music' windowactivate --sync && sleep 0.8 && xdotool key slash && sleep 0.5 && xdotool type --clearmodifiers --delay 40 '{query}' && sleep 0.3 && xdotool key Return"
+        }
+      }
+    },
+    {
+      "keywords": ["pesquise", "pesquisar", "pesquisa", "busque", "buscar", "procure", "procurar"],
+      "category": "search",
+      "targets": {}
     }
   ]
 }

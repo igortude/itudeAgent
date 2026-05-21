@@ -1,780 +1,244 @@
-// ═══════════════════════════════════════════════════════
-//  iTude Agent // CONTROLE DE ANÁLISE COGNITIVA
-// ═══════════════════════════════════════════════════════
-
-// ─── Captura Global de Erros para o Feed do Terminal ───
-window.onerror = function(message, source, lineno, colno, error) {
-  console.error("Global Error Caught:", message, "at line", lineno);
-  const time = new Date().toLocaleTimeString();
-  const feed = document.getElementById('action-feed');
-  if (feed) {
-    const line = document.createElement('div');
-    line.style.color = 'var(--neon-red)';
-    line.textContent = `[${time}] [ERRO JS] ${message} (Linha: ${lineno})`;
-    feed.appendChild(line);
-    feed.scrollTop = feed.scrollHeight;
-  }
+// ═══ iTude Agent — Wake Word State Machine ═══
+window.onerror = function(msg, src, ln) {
+  const f = document.getElementById('action-feed');
+  if (f) { const d = document.createElement('div'); d.style.color='var(--neon-red)'; d.textContent=`[ERRO] ${msg} (L${ln})`; f.appendChild(d); }
   return false;
 };
 
-// ─── STT Setup ───
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition = null;
-if (SpeechRecognition) {
-  recognition = new SpeechRecognition();
-  recognition.lang = 'pt-BR';
-  recognition.continuous = true;
-  recognition.interimResults = false;
+// ─── STATES ───
+const S = { DORMANT:'DORMANT', PASSIVE:'PASSIVE', GREETING:'GREETING', ACTIVE:'ACTIVE', PROCESSING:'PROCESSING', COMPOUND_ASK:'COMPOUND_ASK', COMPOUND_LISTEN:'COMPOUND_LISTEN', COMPOUND_EXEC:'COMPOUND_EXEC' };
+let state = S.DORMANT;
+const WAKE = 'anunaki';
+let pendingCompound = null;
+let activeTimeout = null;
+
+// ─── STT ───
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+if (SR) { rec = new SR(); rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = false; }
+
+// ─── DOM ───
+const $ = id => document.getElementById(id);
+const activeLlmLbl=$('active-llm-lbl'), chatLog=$('chat-log'), playerEl=$('player'),
+  modelSel=$('model-selector'), voiceSel=$('voice-selector'), promptEd=$('prompt-editor'),
+  btnSave=$('btn-save-settings'), feed=$('action-feed'), pulse=$('center-status-pulse'),
+  statusLbl=$('center-status-lbl'), micTrigger=$('mic-trigger'), btnFS=$('btn-fullscreen'),
+  modal=$('learning-modal'), modalCat=$('modal-category-action'), modalTarget=$('modal-target-display'),
+  modalInput=$('modal-binary-input'), btnModalSave=$('btn-modal-save'), btnModalCancel=$('btn-modal-cancel'),
+  actionsList=$('actions-list'), btnAdd=$('btn-add-action'), inName=$('new-target-name'), inBin=$('new-target-binary');
+
+const canvas=$('cosmic-canvas'), ctx=canvas.getContext('2d');
+const dnaC=$('dna-canvas'), dnaX=dnaC.getContext('2d');
+const specC=$('spectral-canvas'), specX=specC.getContext('2d');
+const brainC=$('brain-canvas'), brainX=brainC.getContext('2d');
+
+let selectedModel='', activeCat='open';
+let audioCtx=null, userAn=null, iaAn=null, micStream=null, micSrc=null, iaSrc=null;
+let isIA=false, rot1=0, rot2=0, uVol=0, iVol=0, suVol=0, siVol=0, dnaA=0;
+let learnCat='', learnTarget='';
+
+// ─── Canvas sizing ───
+let W=400, H=400;
+function resizeAll(){
+  if(canvas.parentElement){W=canvas.parentElement.clientWidth;H=canvas.parentElement.clientHeight;canvas.width=W;canvas.height=H;}
+  if(dnaC.parentElement){dnaC.width=dnaC.parentElement.clientWidth;dnaC.height=dnaC.parentElement.clientHeight;}
+  if(specC.parentElement){specC.width=specC.parentElement.clientWidth;specC.height=specC.parentElement.clientHeight;}
+  if(brainC.parentElement){brainC.width=brainC.parentElement.clientWidth;brainC.height=brainC.parentElement.clientHeight;}
+}
+window.addEventListener('resize',resizeAll); setTimeout(resizeAll,300);
+
+// ─── Helpers ───
+function log(m){ const t=new Date().toLocaleTimeString(); const d=document.createElement('div'); d.textContent=`[${t}] ${m}`; feed.appendChild(d); feed.scrollTop=feed.scrollHeight; }
+function chat(type,text){ const e=document.createElement('div'); e.className=`log-entry ${type}`; const l=document.createElement('span'); l.className='log-label'; l.textContent=type==='user'?'VOZ':type==='agent'?'iTude Agent':type==='action'?'TERMINAL':'SISTEMA'; e.appendChild(l); e.appendChild(document.createTextNode(text)); chatLog.appendChild(e); chatLog.parentElement.scrollTop=chatLog.parentElement.scrollHeight; }
+
+function setState(s){
+  state=s;
+  const labels={[S.DORMANT]:'CLIQUE PARA INICIALIZAR',[S.PASSIVE]:'MODO PASSIVO // DIGA "ANUNAKI"',[S.GREETING]:'SAUDAÇÃO EM PROGRESSO...',[S.ACTIVE]:'ESCUTANDO SEU COMANDO...',[S.PROCESSING]:'PROCESSANDO SINAIS...',[S.COMPOUND_ASK]:'AGUARDANDO RESPOSTA...',[S.COMPOUND_LISTEN]:'ESCUTANDO SUA ESCOLHA...',[S.COMPOUND_EXEC]:'EXECUTANDO AUTOMAÇÃO...'};
+  statusLbl.textContent=labels[s]||s;
+  pulse.className='pulse-indicator'+(s===S.ACTIVE||s===S.COMPOUND_LISTEN?' active':isIA?' speaking':'');
+  log(`ESTADO: ${s}`);
 }
 
-// ─── DOM Elements ───
-const activeLlmLbl = document.getElementById('active-llm-lbl');
-const chatLog = document.getElementById('chat-log');
-const playerEl = document.getElementById('player');
-const modelSelector = document.getElementById('model-selector');
-const voiceSelector = document.getElementById('voice-selector');
-const promptEditor = document.getElementById('prompt-editor');
-const btnSaveSettings = document.getElementById('btn-save-settings');
-const actionFeed = document.getElementById('action-feed');
-const centerStatusPulse = document.getElementById('center-status-pulse');
-const centerStatusLbl = document.getElementById('center-status-lbl');
-const micTrigger = document.getElementById('mic-trigger');
-
-const canvas = document.getElementById('cosmic-canvas');
-const ctx = canvas.getContext('2d');
-
-const dnaCanvas = document.getElementById('dna-canvas');
-const dnaCtx = dnaCanvas.getContext('2d');
-
-const spectralCanvas = document.getElementById('spectral-canvas');
-const spectralCtx = spectralCanvas.getContext('2d');
-
-const brainCanvas = document.getElementById('brain-canvas');
-const brainCtx = brainCanvas.getContext('2d');
-
-const actionsList = document.getElementById('actions-list');
-const btnAddAction = document.getElementById('btn-add-action');
-const inputTargetName = document.getElementById('new-target-name');
-const inputTargetBinary = document.getElementById('new-target-binary');
-
-// ─── State ───
-let isListening = false;
-let isIA_Speaking = false;
-let selectedModel = '';
-let activeActionCategory = 'open';
-
-// ─── Web Audio API ───
-let audioCtx = null;
-let userAnalyser = null;
-let iaAnalyser = null;
-let micStream = null;
-let micSourceNode = null;
-let iaSourceNode = null;
-
-// ─── Canvas Radii ───
-let W = canvas.parentElement.clientWidth || 400;
-let H = canvas.parentElement.clientHeight || 400;
-canvas.width = W;
-canvas.height = H;
-
-// Ajustar telas no redimensionamento
-function resizeCanvases() {
-  if (canvas && canvas.parentElement) {
-    W = canvas.parentElement.clientWidth || 400;
-    H = canvas.parentElement.clientHeight || 400;
-    canvas.width = W;
-    canvas.height = H;
-  }
-  
-  if (dnaCanvas && dnaCanvas.parentElement) {
-    dnaCanvas.width = dnaCanvas.parentElement.clientWidth || 250;
-    dnaCanvas.height = dnaCanvas.parentElement.clientHeight || 110;
-  }
-  
-  if (spectralCanvas && spectralCanvas.parentElement) {
-    spectralCanvas.width = spectralCanvas.parentElement.clientWidth || 300;
-    spectralCanvas.height = spectralCanvas.parentElement.clientHeight || 110;
-  }
-  
-  if (brainCanvas && brainCanvas.parentElement) {
-    brainCanvas.width = brainCanvas.parentElement.clientWidth || 300;
-    brainCanvas.height = brainCanvas.parentElement.clientHeight || 110;
-  }
-}
-window.addEventListener('resize', resizeCanvases);
-setTimeout(resizeCanvases, 300);
-
-let rot1 = 0, rot2 = 0, rot3 = 0;
-let userVol = 0, iaVol = 0;
-let smoothUserVol = 0, smoothIaVol = 0;
-let brainPulse = 0;
-
-// ═══════════════════════════════════════════════════════
-//  LOGS DO TERMINAL & REGISTROS
-// ═══════════════════════════════════════════════════════
-
-function addTerminalLog(message) {
-  const time = new Date().toLocaleTimeString();
-  const line = document.createElement('div');
-  line.textContent = `[${time}] ${message}`;
-  actionFeed.appendChild(line);
-  actionFeed.scrollTop = actionFeed.scrollHeight;
+function playAudio(url){
+  if(!url)return false;
+  playerEl.src=`${url}?t=${Date.now()}`;
+  playerEl.play().catch(e=>{console.error(e);tryRestart();});
+  return true;
 }
 
-function addChatLog(type, text) {
-  const entry = document.createElement('div');
-  entry.className = `log-entry ${type}`;
-
-  const label = document.createElement('span');
-  label.className = 'log-label';
-  
-  if (type === 'user') label.textContent = 'TRANSCRIÇÃO DE VOZ';
-  else if (type === 'agent') label.textContent = 'iTude Agent (RESPOSTA)';
-  else if (type === 'action') label.textContent = 'EXECUTOR TERMINAL';
-  else label.textContent = 'SISTEMA';
-
-  entry.appendChild(label);
-
-  const content = document.createTextNode(text);
-  entry.appendChild(content);
-  chatLog.appendChild(entry);
-
-  const container = chatLog.parentElement;
-  container.scrollTop = container.scrollHeight;
+function tryRestart(){
+  if(state===S.DORMANT||modal.style.display==='flex')return;
+  try{rec&&rec.start();}catch(e){}
 }
 
-// ═══════════════════════════════════════════════════════
-//  WEB AUDIO API
-// ═══════════════════════════════════════════════════════
-
-async function initAudioContext() {
-  if (audioCtx) return;
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    userAnalyser = audioCtx.createAnalyser();
-    userAnalyser.fftSize = 128;
-
-    iaAnalyser = audioCtx.createAnalyser();
-    iaAnalyser.fftSize = 256;
-
-    iaSourceNode = audioCtx.createMediaElementSource(playerEl);
-    iaSourceNode.connect(iaAnalyser);
-    iaAnalyser.connect(audioCtx.destination);
-
-    addTerminalLog('MÓDULO COGNITIVO DE ÁUDIO INICIALIZADO');
-  } catch (e) {
-    console.error('[AudioCtx] Init error:', e);
-    addTerminalLog('ERRO: Navegador bloqueou ou não suporta Web Audio API.');
-  }
+// ─── Audio Context ───
+async function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  userAn=audioCtx.createAnalyser(); userAn.fftSize=128;
+  iaAn=audioCtx.createAnalyser(); iaAn.fftSize=256;
+  iaSrc=audioCtx.createMediaElementSource(playerEl); iaSrc.connect(iaAn); iaAn.connect(audioCtx.destination);
+  log('ÁUDIO INICIALIZADO');
 }
 
-async function connectMicAnalyser(stream) {
-  if (!audioCtx) await initAudioContext();
-  try {
-    if (micSourceNode) micSourceNode.disconnect();
-    micSourceNode = audioCtx.createMediaStreamSource(stream);
-    micSourceNode.connect(userAnalyser);
-  } catch (e) {
-    console.error('[AudioCtx] Mic connect error:', e);
-  }
-}
+// ─── Player events (state-aware) ───
+playerEl.addEventListener('play',()=>{ isIA=true; if(rec)try{rec.stop();}catch(e){} });
+playerEl.addEventListener('ended',()=>{
+  isIA=false;
+  if(state===S.GREETING){ setState(S.ACTIVE); activeTimeout=setTimeout(()=>{if(state===S.ACTIVE){setState(S.PASSIVE);}},15000); tryRestart(); }
+  else if(state===S.COMPOUND_ASK){ setState(S.COMPOUND_LISTEN); tryRestart(); }
+  else{ setState(S.PASSIVE); tryRestart(); }
+});
+playerEl.addEventListener('error',()=>{ isIA=false; setState(S.PASSIVE); tryRestart(); });
 
-// ═══════════════════════════════════════════════════════
-//  APIS DE CONFIGURAÇÃO E MODELOS OLLAMA
-// ═══════════════════════════════════════════════════════
+// ─── Recognition (always-on, state-filtered) ───
+if(rec){
+  rec.onend=()=>{ if(state!==S.DORMANT&&state!==S.PROCESSING&&state!==S.COMPOUND_EXEC&&state!==S.GREETING&&state!==S.COMPOUND_ASK&&!isIA&&modal.style.display!=='flex') setTimeout(tryRestart,300); };
+  rec.onerror=(e)=>{ if(e.error==='not-allowed')log('ERRO: Microfone negado.'); else if(e.error!=='aborted')setTimeout(tryRestart,500); };
 
-async function loadModels() {
-  try {
-    const res = await fetch('/api/models');
-    const data = await res.json();
-    modelSelector.innerHTML = '';
-    if (data.models && data.models.length > 0) {
-      data.models.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m.toUpperCase();
-        modelSelector.appendChild(opt);
-      });
-      selectedModel = data.models[0];
-      activeLlmLbl.textContent = selectedModel.split(':')[0].toUpperCase();
-      addTerminalLog(`MODELO DE LINGUAGEM DETECTADO: ${selectedModel}`);
-    } else {
-      modelSelector.innerHTML = '<option value="">NENHUM MODELO ENCONTRADO</option>';
-      addTerminalLog(`AVISO: Nenhum modelo encontrado no Ollama. Verifique se o Ollama está rodando.`);
-    }
-  } catch (e) {
-    modelSelector.innerHTML = '<option value="">FALHA AO CONECTAR</option>';
-    addTerminalLog(`ERRO: Falha ao buscar modelos do Ollama backend.`);
-  }
-}
+  rec.onresult=async(ev)=>{
+    const text=ev.results[ev.results.length-1][0].transcript.trim();
+    if(!text)return;
+    const low=text.toLowerCase();
 
-async function loadSettings() {
-  try {
-    const res = await fetch('/api/settings');
-    const settings = await res.json();
-    
-    // Configurar o prompt de personalidade
-    promptEditor.value = settings.systemPrompt;
-    
-    // Configurar o seletor de voz
-    voiceSelector.innerHTML = '';
-    settings.availableVoices.forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v.id;
-      opt.textContent = v.name;
-      if (v.id === settings.voice) {
-        opt.selected = true;
+    // ── PASSIVE: filtrar pela wake word ──
+    if(state===S.PASSIVE){
+      if(!low.includes(WAKE))return; // ignorar tudo que não for anunaki
+      const after=low.split(WAKE).pop().trim().replace(/^[,.\s]+/,'');
+      if(rec)try{rec.stop();}catch(e){}
+      if(after.length>3){ // "anunaki abra o chrome" → pular saudação
+        setState(S.PROCESSING); chat('user',after); log(`COMANDO DIRETO: "${after.toUpperCase()}"`);
+        await processCommand(after);
+      } else { // apenas "anunaki" → saudar
+        setState(S.GREETING); log('WAKE WORD DETECTADA!');
+        try{ const r=await fetch('/api/greet',{method:'POST'}); const d=await r.json(); chat('agent',d.reply); playAudio(d.audioUrl); }catch(e){setState(S.PASSIVE);tryRestart();}
       }
-      voiceSelector.appendChild(opt);
-    });
-    addTerminalLog(`ASSINATURA COGNITIVA CARREGADA COM SUCESSO`);
-  } catch (e) {
-    addTerminalLog(`ERRO: Falha ao carregar configurações de voz e prompt.`);
-  }
-}
-
-btnSaveSettings.addEventListener('click', async () => {
-  const voice = voiceSelector.value;
-  const prompt = promptEditor.value;
-  try {
-    const res = await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ voice, systemPrompt: prompt })
-    });
-    const data = await res.json();
-    if (data.success) {
-      addTerminalLog(`ASSINATURA COGNITIVA ATUALIZADA COM SUCESSO`);
-      addChatLog('system', 'Personalidade e voz atualizadas com sucesso no agente terrestre.');
+      return;
     }
-  } catch (e) {
-    addTerminalLog(`ERRO: Não foi possível atualizar a assinatura cognitiva.`);
-  }
-});
 
-modelSelector.addEventListener('change', e => {
-  selectedModel = e.target.value;
-  activeLlmLbl.textContent = selectedModel.split(':')[0].toUpperCase();
-  addTerminalLog(`MODELO ALTERADO PARA: ${selectedModel}`);
-});
-
-// Inicializar configs do sistema
-loadModels();
-loadSettings();
-
-// ═══════════════════════════════════════════════════════
-//  GERENCIAMENTO DE COMANDOS RÁPIDOS
-// ═══════════════════════════════════════════════════════
-
-async function loadActions() {
-  try {
-    const res = await fetch('/api/actions');
-    const data = await res.json();
-    renderActions(data, activeActionCategory);
-  } catch (e) {
-    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.65rem;">Erro de rede</div>';
-  }
-}
-
-function renderActions(data, category) {
-  actionsList.innerHTML = '';
-  const group = data.actions.find(a => a.category === category);
-  if (!group || Object.keys(group.targets).length === 0) {
-    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.62rem; padding: 6px;">Nenhum comando</div>';
-    return;
-  }
-  for (const [name, info] of Object.entries(group.targets)) {
-    const item = document.createElement('div');
-    item.className = 'action-item';
-    item.innerHTML = `
-      <div>
-        <span class="action-name">${name.toUpperCase()}</span>
-        <span class="action-binary">${info.binary}</span>
-      </div>
-      <button class="btn btn-danger" data-target="${name}" data-category="${category}">✕</button>
-    `;
-    actionsList.appendChild(item);
-  }
-
-  // Evento dos botões de exclusão
-  actionsList.querySelectorAll('.btn-danger').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const targetName = btn.dataset.target;
-      const cat = btn.dataset.category;
-      try {
-        await fetch('/api/actions/target', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category: cat, targetName })
-        });
-        loadActions();
-        addTerminalLog(`COMANDO REMOVIDO: ${targetName.toUpperCase()}`);
-      } catch (e) {
-        console.error('Delete failed:', e);
-      }
-    });
-  });
-}
-
-// Troca de abas (Tabs)
-document.querySelectorAll('#action-tabs .tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('#action-tabs .tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    activeActionCategory = tab.dataset.category;
-    loadActions();
-  });
-});
-
-// Adicionar ação rápida
-btnAddAction.addEventListener('click', async () => {
-  const name = inputTargetName.value.trim();
-  const binary = inputTargetBinary.value.trim();
-  if (!name || !binary) {
-    addTerminalLog(`AVISO: Digite o nome do comando e o binário Linux correspondente.`);
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/actions/target', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        category: activeActionCategory,
-        targetName: name,
-        binary: binary,
-        description: name
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      inputTargetName.value = '';
-      inputTargetBinary.value = '';
-      loadActions();
-      addTerminalLog(`NOVO COMANDO CRIPTOGRAFADO: "${name.toUpperCase()}" → "${binary}"`);
+    // ── ACTIVE: comando após saudação ──
+    if(state===S.ACTIVE){
+      if(activeTimeout){clearTimeout(activeTimeout);activeTimeout=null;}
+      if(rec)try{rec.stop();}catch(e){}
+      setState(S.PROCESSING); chat('user',text); log(`PROCESSANDO: "${text.toUpperCase()}"`);
+      await processCommand(text);
+      return;
     }
-  } catch (e) {
-    addTerminalLog(`ERRO: Falha ao registrar novo comando no servidor.`);
-  }
+
+    // ── COMPOUND_LISTEN: resposta do follow-up ──
+    if(state===S.COMPOUND_LISTEN){
+      if(rec)try{rec.stop();}catch(e){}
+      setState(S.COMPOUND_EXEC); chat('user',text); log(`BUSCA COMPOSTA: "${text.toUpperCase()}"`);
+      try{
+        const r=await fetch('/api/compound-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text,searchCommand:pendingCompound.searchCommand})});
+        const d=await r.json(); chat('action',d.reply); playAudio(d.audioUrl);
+      }catch(e){log('ERRO na busca composta');setState(S.PASSIVE);tryRestart();}
+      pendingCompound=null;
+      return;
+    }
+  };
+}
+
+// ─── Process Command ───
+async function processCommand(text){
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,model:selectedModel})});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const d=await r.json();
+
+    if(d.compoundAction){ pendingCompound={binary:d.binary,searchCommand:d.searchCommand}; setState(S.COMPOUND_ASK); chat('agent',d.reply); playAudio(d.audioUrl); return; }
+    if(d.unrecognizedAction){ chat('agent',d.reply); playAudio(d.audioUrl); openLearnModal(d.category,d.targetName); return; }
+    chat(d.actionExecuted?'action':'agent',d.reply); if(d.actionExecuted)log(`AÇÃO: ${d.reply}`);
+    if(!playAudio(d.audioUrl)){setState(S.PASSIVE);tryRestart();}
+  }catch(e){console.error(e);log('FALHA NA COMUNICAÇÃO');setState(S.PASSIVE);tryRestart();}
+}
+
+// ─── Learning Modal ───
+function openLearnModal(cat,target){
+  learnCat=cat; learnTarget=target;
+  modalCat.textContent=cat==='open'?'ABRIR':cat==='close'?'FECHAR':cat==='play'?'REPRODUZIR':'EXECUTAR';
+  modalTarget.textContent=`"${target.toUpperCase()}"`;
+  modalInput.value=''; modal.style.display='flex'; modalInput.focus();
+  if(rec)try{rec.stop();}catch(e){}
+}
+
+btnModalSave.addEventListener('click',async()=>{
+  const bin=modalInput.value.trim(); if(!bin)return;
+  try{
+    const r=await fetch('/api/actions/target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:learnCat,targetName:learnTarget,binary:bin,description:learnTarget})});
+    const d=await r.json();
+    if(d.success){
+      log(`SINAPSE GRAVADA: "${learnTarget}" → "${bin}"`); chat('system',`Aprendi! Executando "${learnTarget}" agora...`);
+      modal.style.display='none'; loadActions();
+      // Re-executar o comando recém-aprendido
+      setState(S.PROCESSING);
+      await processCommand(`${learnCat==='open'?'abra o':learnCat==='close'?'feche o':'execute o'} ${learnTarget}`);
+    }
+  }catch(e){log('ERRO ao gravar sinapse');}
 });
 
+btnModalCancel.addEventListener('click',()=>{ modal.style.display='none'; log('APRENDIZADO CANCELADO'); setState(S.PASSIVE); tryRestart(); });
+modalInput.addEventListener('keydown',e=>{if(e.key==='Enter')btnModalSave.click();});
+
+// ─── Init: primeiro clique ativa tudo ───
+async function activateAgent(){
+  if(state!==S.DORMANT)return;
+  await initAudio();
+  if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
+  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:true}); if(userAn){const s=audioCtx.createMediaStreamSource(micStream);s.connect(userAn);} }catch(e){log('ERRO: Microfone bloqueado.');}
+  setState(S.PASSIVE);
+  if(rec)try{rec.start();}catch(e){}
+  log('AGENTE ATIVADO — ESCUTA PASSIVA INICIADA'); chat('system','Agente ativado. Diga "Anunaki" para me invocar.');
+}
+
+if(micTrigger)micTrigger.addEventListener('click',activateAgent);
+if(canvas)canvas.addEventListener('click',activateAgent);
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'&&e.target.tagName!=='SELECT'){e.preventDefault();activateAgent();}});
+
+// ─── Fullscreen ───
+if(btnFS)btnFS.addEventListener('click',()=>{
+  if(!document.fullscreenElement){document.documentElement.requestFullscreen().then(()=>{btnFS.textContent='SAIR TELA CHEIA';}).catch(e=>{});}
+  else{document.exitFullscreen().then(()=>{btnFS.textContent='MODO TELA CHEIA';});}
+});
+
+// ─── Settings & Models ───
+async function loadModels(){try{const r=await fetch('/api/models');const d=await r.json();modelSel.innerHTML='';if(d.models&&d.models.length){d.models.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m.toUpperCase();modelSel.appendChild(o);});selectedModel=d.models[0];activeLlmLbl.textContent=selectedModel.split(':')[0].toUpperCase();}else{modelSel.innerHTML='<option>NENHUM MODELO</option>';}}catch(e){modelSel.innerHTML='<option>ERRO</option>';}}
+async function loadSettings(){try{const r=await fetch('/api/settings');const s=await r.json();promptEd.value=s.systemPrompt;voiceSel.innerHTML='';s.availableVoices.forEach(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.name;if(v.id===s.voice)o.selected=true;voiceSel.appendChild(o);});}catch(e){}}
+btnSave.addEventListener('click',async()=>{try{const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice:voiceSel.value,systemPrompt:promptEd.value})});const d=await r.json();if(d.success){log('PERSONALIDADE ATUALIZADA');chat('system','Configuração aplicada.');}}catch(e){}});
+modelSel.addEventListener('change',e=>{selectedModel=e.target.value;activeLlmLbl.textContent=selectedModel.split(':')[0].toUpperCase();});
+loadModels(); loadSettings();
+
+// ─── Actions CRUD ───
+async function loadActions(){try{const r=await fetch('/api/actions');const d=await r.json();renderActions(d,activeCat);}catch(e){}}
+function renderActions(data,cat){actionsList.innerHTML='';const g=data.actions.find(a=>a.category===cat);if(!g||!Object.keys(g.targets).length){actionsList.innerHTML='<div style="color:var(--text-dim);font-size:0.6rem;padding:6px">Nenhum</div>';return;}
+for(const[n,i]of Object.entries(g.targets)){const d=document.createElement('div');d.className='action-item';d.innerHTML=`<div><span class="action-name">${n.toUpperCase()}</span> <span class="action-binary">${i.binary}</span></div><button class="btn btn-danger" data-t="${n}" data-c="${cat}">✕</button>`;actionsList.appendChild(d);}
+actionsList.querySelectorAll('.btn-danger').forEach(b=>b.addEventListener('click',async()=>{await fetch('/api/actions/target',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:b.dataset.c,targetName:b.dataset.t})});loadActions();}));}
+document.querySelectorAll('#action-tabs .tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('#action-tabs .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');activeCat=t.dataset.category;loadActions();}));
+btnAdd.addEventListener('click',async()=>{const n=inName.value.trim(),b=inBin.value.trim();if(!n||!b){log('Preencha nome e binário');return;}try{const r=await fetch('/api/actions/target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:activeCat,targetName:n,binary:b,description:n})});const d=await r.json();if(d.success){inName.value='';inBin.value='';loadActions();log(`COMANDO: "${n}" → "${b}"`);};}catch(e){}});
 loadActions();
 
-// ═══════════════════════════════════════════════════════
-//  CANVAS DOURADOS E ANIMAÇÕES
-// ═══════════════════════════════════════════════════════
+// ═══ CANVAS ANIMATIONS ═══
+const brainNodes=[];for(let i=0;i<25;i++)brainNodes.push({x:Math.random()*200+40,y:Math.random()*80+15,r:Math.random()*1.5+0.8,fr:Math.random()*0.05+0.01,ph:Math.random()*Math.PI});
 
-// ─── 1. DNA HELIX ANGLE ───
-let dnaAngle = 0;
-function drawDnaHelix() {
-  if (!dnaCanvas) return;
-  const w = dnaCanvas.width;
-  const h = dnaCanvas.height;
-  dnaCtx.clearRect(0, 0, w, h);
-  
-  const midY = h / 2;
-  const length = w - 20;
-  const amp = 25 + smoothIaVol * 0.4;
-  const speed = 0.04 + smoothUserVol * 0.002;
-  dnaAngle += speed;
+function drawDna(){const w=dnaC.width,h=dnaC.height;dnaX.clearRect(0,0,w,h);const mid=h/2,amp=25+siVol*0.4;dnaA+=0.04+suVol*0.002;for(let x=10;x<w-10;x+=15){const o=(x/(w-20))*Math.PI*4,y1=mid+Math.sin(dnaA+o)*amp,y2=mid+Math.sin(dnaA+o+Math.PI)*amp;dnaX.strokeStyle='rgba(0,243,255,0.1)';dnaX.beginPath();dnaX.moveTo(x,y1);dnaX.lineTo(x,y2);dnaX.stroke();dnaX.fillStyle='#00f3ff';dnaX.beginPath();dnaX.arc(x,y1,2,0,Math.PI*2);dnaX.fill();dnaX.fillStyle='#bc34fa';dnaX.beginPath();dnaX.arc(x,y2,2,0,Math.PI*2);dnaX.fill();}}
 
-  dnaCtx.lineWidth = 1;
-  
-  for (let x = 10; x < w - 10; x += 15) {
-    const offset = (x / length) * Math.PI * 4;
-    const y1 = midY + Math.sin(dnaAngle + offset) * amp;
-    const y2 = midY + Math.sin(dnaAngle + offset + Math.PI) * amp;
-    
-    // Conector
-    dnaCtx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
-    dnaCtx.beginPath();
-    dnaCtx.moveTo(x, y1);
-    dnaCtx.lineTo(x, y2);
-    dnaCtx.stroke();
-    
-    // Nodo 1
-    dnaCtx.fillStyle = '#00f3ff';
-    dnaCtx.beginPath();
-    dnaCtx.arc(x, y1, 2, 0, Math.PI * 2);
-    dnaCtx.fill();
-    
-    // Nodo 2
-    dnaCtx.fillStyle = '#bc34fa';
-    dnaCtx.beginPath();
-    dnaCtx.arc(x, y2, 2, 0, Math.PI * 2);
-    dnaCtx.fill();
-  }
-}
+function drawBrain(){const w=brainC.width,h=brainC.height;brainX.clearRect(0,0,w,h);brainX.save();brainX.translate(w/2-120,0);for(let i=0;i<brainNodes.length;i++){const n=brainNodes[i];n.ph+=n.fr;const a=0.15+Math.sin(n.ph)*0.15;for(let j=i+1;j<brainNodes.length;j++){const m=brainNodes[j],d=Math.hypot(n.x-m.x,n.y-m.y);if(d<35){brainX.strokeStyle=`rgba(188,52,250,${a*(1-d/35)})`;brainX.lineWidth=0.5;brainX.beginPath();brainX.moveTo(n.x,n.y);brainX.lineTo(m.x,m.y);brainX.stroke();}}brainX.fillStyle=`hsla(280,85%,65%,${a+0.3})`;brainX.beginPath();brainX.arc(n.x,n.y,n.r+(siVol>10?siVol*0.05:0),0,Math.PI*2);brainX.fill();}brainX.restore();}
 
-// ─── 2. BRAIN WAVE MAP ───
-const brainNodes = [];
-for (let i = 0; i < 25; i++) {
-  brainNodes.push({
-    x: Math.random() * 200 + 40,
-    y: Math.random() * 80 + 15,
-    r: Math.random() * 1.5 + 0.8,
-    flashRate: Math.random() * 0.05 + 0.01,
-    phase: Math.random() * Math.PI
-  });
-}
+function drawSpec(){const w=specC.width,h=specC.height;specX.clearRect(0,0,w,h);const an=(state===S.ACTIVE||state===S.COMPOUND_LISTEN)?userAn:isIA?iaAn:null;if(an){const buf=an.frequencyBinCount,da=new Uint8Array(buf);an.getByteFrequencyData(da);const bw=(w/buf)*2.5;let x=0;for(let i=0;i<buf;i++){const bh=(da[i]/255)*h;specX.fillStyle=`rgba(0,243,255,${bh/h+0.1})`;specX.fillRect(x,h-bh,bw-1,bh);x+=bw;}}else{specX.strokeStyle='rgba(0,243,255,0.15)';specX.beginPath();specX.moveTo(0,h/2);specX.lineTo(w,h/2);specX.stroke();}}
 
-function drawBrainCanvas() {
-  if (!brainCanvas) return;
-  const w = brainCanvas.width;
-  const h = brainCanvas.height;
-  brainCtx.clearRect(0, 0, w, h);
-  
-  brainCtx.save();
-  brainCtx.translate(w/2 - 120, 0);
-  
-  brainCtx.lineWidth = 0.5;
-  for (let i = 0; i < brainNodes.length; i++) {
-    const n1 = brainNodes[i];
-    n1.phase += n1.flashRate;
-    const alpha = 0.15 + Math.sin(n1.phase) * 0.15;
-    
-    for (let j = i + 1; j < brainNodes.length; j++) {
-      const n2 = brainNodes[j];
-      const dist = Math.hypot(n1.x - n2.x, n1.y - n2.y);
-      if (dist < 35) {
-        brainCtx.strokeStyle = `rgba(188, 52, 250, ${alpha * (1 - dist / 35)})`;
-        brainCtx.beginPath();
-        brainCtx.moveTo(n1.x, n1.y);
-        brainCtx.lineTo(n2.x, n2.y);
-        brainCtx.stroke();
-      }
-    }
-    
-    const pulseVol = (smoothIaVol > 10 ? smoothIaVol * 0.05 : 0);
-    brainCtx.fillStyle = `hsla(280, 85%, 65%, ${alpha + 0.3})`;
-    brainCtx.beginPath();
-    brainCtx.arc(n1.x, n1.y, n1.r + pulseVol, 0, Math.PI * 2);
-    brainCtx.fill();
-  }
-  brainCtx.restore();
-}
+function drawHolo(){const cx=W/2,cy=H/2;ctx.fillStyle='rgba(3,4,15,0.15)';ctx.fillRect(0,0,W,H);const v=Math.max(suVol,siVol),sc=1+v*0.005;rot1+=0.005+v*0.0001;rot2-=0.003+v*0.0001;ctx.save();ctx.translate(cx,cy);ctx.scale(sc,sc);
+ctx.lineWidth=0.6;ctx.strokeStyle='rgba(0,243,255,0.1)';ctx.beginPath();ctx.arc(0,0,160,0,Math.PI*2);ctx.stroke();
+ctx.save();ctx.rotate(rot1);ctx.strokeStyle='var(--neon-blue)';ctx.setLineDash([3,15]);ctx.beginPath();ctx.arc(0,0,140,0,Math.PI*2);ctx.stroke();ctx.restore();
+ctx.save();ctx.rotate(rot2);ctx.strokeStyle='var(--neon-purple)';ctx.setLineDash([8,30]);ctx.beginPath();ctx.arc(0,0,120,0,Math.PI*2);ctx.stroke();ctx.restore();
+const hue=state===S.ACTIVE||state===S.COMPOUND_LISTEN?'350':isIA?'280':'185';
+ctx.lineWidth=1;ctx.strokeStyle=`hsla(${hue},90%,60%,0.3)`;ctx.beginPath();for(let i=0;i<6;i++){const a=(Math.PI/3)*i+rot1*0.5,r1=30+v*0.2,r2=70+v*0.4;ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);}ctx.stroke();
+ctx.strokeStyle=`hsla(${hue},90%,65%,0.5)`;ctx.beginPath();for(let i=0;i<=6;i++){const a=(Math.PI/3)*i+rot1*0.5,r=70+v*0.4,tx=Math.cos(a)*r,ty=Math.sin(a)*r;i===0?ctx.moveTo(tx,ty):ctx.lineTo(tx,ty);}ctx.closePath();ctx.stroke();
+ctx.fillStyle=`hsla(${hue},90%,60%,${0.1+v*0.003})`;ctx.shadowBlur=20+v*0.2;ctx.shadowColor=`hsla(${hue},90%,55%,0.5)`;ctx.beginPath();ctx.arc(0,0,30+v*0.15,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+const sy=Math.sin(Date.now()*0.0018)*160;ctx.strokeStyle='rgba(0,243,255,0.4)';ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(-160,sy);ctx.lineTo(160,sy);ctx.stroke();
+ctx.restore();}
 
-// ─── 3. SPECTRAL ANALYSIS FREQUENCY ───
-function drawSpectralCanvas() {
-  if (!spectralCanvas) return;
-  const w = spectralCanvas.width;
-  const h = spectralCanvas.height;
-  spectralCtx.clearRect(0, 0, w, h);
-
-  let analyser = null;
-  if (isListening && userAnalyser) analyser = userAnalyser;
-  else if (isIA_Speaking && iaAnalyser) analyser = iaAnalyser;
-  
-  if (analyser) {
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    analyser.getByteFrequencyData(dataArray);
-
-    const barWidth = (w / bufferLength) * 2.5;
-    let x = 0;
-
-    for (let i = 0; i < bufferLength; i++) {
-      const barHeight = (dataArray[i] / 255) * h;
-      
-      const r = 0;
-      const g = 243;
-      const b = 255;
-      
-      spectralCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${barHeight / h + 0.1})`;
-      spectralCtx.fillRect(x, h - barHeight, barWidth - 1, barHeight);
-      
-      spectralCtx.fillStyle = 'var(--neon-purple)';
-      spectralCtx.fillRect(x, h - barHeight - 2, barWidth - 1, 2);
-
-      x += barWidth;
-    }
-  } else {
-    spectralCtx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
-    spectralCtx.lineWidth = 1;
-    spectralCtx.beginPath();
-    spectralCtx.moveTo(0, h / 2);
-    spectralCtx.lineTo(w, h / 2);
-    spectralCtx.stroke();
-  }
-}
-
-// ─── 4. MAIN CENTRAL HOLOGRAM CHAMBER (iTude Agent HUD) ───
-function drawContainmentHologram() {
-  if (!canvas) return;
-  const cx = W / 2;
-  const cy = H / 2;
-  
-  ctx.fillStyle = 'rgba(3, 4, 15, 0.15)';
-  ctx.fillRect(0, 0, W, H);
-  
-  const vol = Math.max(smoothUserVol, smoothIaVol);
-  const scale = 1.0 + vol * 0.005;
-
-  rot1 += 0.005 + vol * 0.0001;
-  rot2 -= 0.003 + vol * 0.0001;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(scale, scale);
-  
-  ctx.lineWidth = 0.6;
-  ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
-  ctx.beginPath();
-  ctx.arc(0, 0, 160, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Orbita giratória 1
-  ctx.save();
-  ctx.rotate(rot1);
-  ctx.strokeStyle = 'var(--neon-blue)';
-  ctx.beginPath();
-  ctx.setLineDash([3, 15]);
-  ctx.arc(0, 0, 140, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-
-  // Orbita giratória 2
-  ctx.save();
-  ctx.rotate(rot2);
-  ctx.strokeStyle = 'var(--neon-purple)';
-  ctx.beginPath();
-  ctx.setLineDash([8, 30]);
-  ctx.arc(0, 0, 120, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-
-  // Núcleo central
-  ctx.lineWidth = 1;
-  let activeHue = isListening ? '350' : isIA_Speaking ? '280' : '185';
-  
-  ctx.strokeStyle = `hsla(${activeHue}, 90%, 60%, 0.3)`;
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i + rot1 * 0.5;
-    const r1 = 30 + vol * 0.2;
-    const r2 = 70 + vol * 0.4;
-    ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1);
-    ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2);
-  }
-  ctx.stroke();
-
-  ctx.strokeStyle = `hsla(${activeHue}, 90%, 65%, 0.5)`;
-  ctx.beginPath();
-  for (let i = 0; i <= 6; i++) {
-    const angle = (Math.PI / 3) * i + rot1 * 0.5;
-    const r = 70 + vol * 0.4;
-    const tx = Math.cos(angle) * r;
-    const ty = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(tx, ty);
-    else ctx.lineTo(tx, ty);
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  ctx.fillStyle = `hsla(${activeHue}, 90%, 60%, ${0.1 + vol * 0.003})`;
-  ctx.shadowBlur = 20 + vol * 0.2;
-  ctx.shadowColor = `hsla(${activeHue}, 90%, 55%, 0.5)`;
-  ctx.beginPath();
-  ctx.arc(0, 0, 30 + vol * 0.15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-
-  // Linhas de laser de varredura
-  const scanY = Math.sin(Date.now() * 0.0018) * 160;
-  ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(-160, scanY);
-  ctx.lineTo(160, scanY);
-  ctx.stroke();
-
-  ctx.fillStyle = 'var(--neon-blue)';
-  ctx.fillRect(-150, -150, 3, 3);
-  ctx.fillRect(150, -150, 3, 3);
-  ctx.fillRect(-150, 150, 3, 3);
-  ctx.fillRect(150, 150, 3, 3);
-
-  ctx.restore();
-}
-
-// ─── 5. GLOBAL ANIMATION LOOP ───
-function renderLoop() {
-  requestAnimationFrame(renderLoop);
-
-  if (userAnalyser && isListening) {
-    const d = new Uint8Array(userAnalyser.frequencyBinCount);
-    userAnalyser.getByteFrequencyData(d);
-    userVol = d.reduce((a, b) => a + b, 0) / d.length;
-  } else {
-    userVol *= 0.9;
-  }
-
-  if (iaAnalyser && isIA_Speaking) {
-    const d = new Uint8Array(iaAnalyser.frequencyBinCount);
-    iaAnalyser.getByteFrequencyData(d);
-    iaVol = d.reduce((a, b) => a + b, 0) / d.length;
-  } else {
-    iaVol *= 0.9;
-  }
-
-  smoothUserVol += (userVol - smoothUserVol) * 0.18;
-  smoothIaVol += (iaVol - smoothIaVol) * 0.18;
-
-  drawDnaHelix();
-  drawBrainCanvas();
-  drawSpectralCanvas();
-  drawContainmentHologram();
-}
-
-renderLoop();
-
-// ═══════════════════════════════════════════════════════
-//  ORQUESTRACAO E EVITAÇÃO DE ECO / SÍNCRONO
-// ═══════════════════════════════════════════════════════
-
-playerEl.addEventListener('play', () => {
-  isIA_Speaking = true;
-  isListening = false;
-  if (recognition) recognition.stop();
-  
-  centerStatusPulse.className = 'pulse-indicator speaking';
-  centerStatusLbl.textContent = 'TRANSMISSÃO COGNITIVA EM ANDAMENTO';
-});
-
-playerEl.addEventListener('ended', () => {
-  isIA_Speaking = false;
-  
-  centerStatusPulse.className = 'pulse-indicator';
-  centerStatusLbl.textContent = 'CÂMARA COGNITIVA PRONTA // AGUARDANDO COMANDO';
-  
-  if (recognition) {
-    recognition.start();
-    isListening = true;
-    centerStatusPulse.className = 'pulse-indicator active';
-    centerStatusLbl.textContent = 'AGUARDANDO ONDAS DE CAPTURA DE VOZ...';
-  }
-});
-
-playerEl.addEventListener('error', (e) => {
-  console.error('[Player] Error:', e);
-  addTerminalLog('ERRO: Não foi possível decodificar o arquivo de voz.');
-  isIA_Speaking = false;
-  if (recognition) recognition.start();
-});
-
-// ═══════════════════════════════════════════════════════
-//  STT EVENTOS DE MICROFONE
-// ═══════════════════════════════════════════════════════
-
-if (recognition) {
-  recognition.onstart = () => {
-    if (!isIA_Speaking) {
-      isListening = true;
-      centerStatusPulse.className = 'pulse-indicator active';
-      centerStatusLbl.textContent = 'AGUARDANDO ONDAS DE CAPTURA DE VOZ...';
-    }
-  };
-
-  recognition.onend = () => {
-    isListening = false;
-    if (!isIA_Speaking) {
-      centerStatusPulse.className = 'pulse-indicator';
-      centerStatusLbl.textContent = 'CÂMARA COGNITIVA PRONTA // AGUARDANDO COMANDO';
-    }
-  };
-
-  recognition.onerror = (event) => {
-    console.error('[STT] Error:', event.error);
-    if (event.error === 'not-allowed') {
-      addTerminalLog('ERRO: Permissão de microfone negada no navegador.');
-    }
-  };
-
-  recognition.onresult = async (event) => {
-    const idx = event.results.length - 1;
-    const text = event.results[idx][0].transcript.trim();
-    if (!text) return;
-
-    addChatLog('user', text);
-    recognition.stop();
-    
-    centerStatusPulse.className = 'pulse-indicator';
-    centerStatusLbl.textContent = 'PROCESSANDO SINAIS COGNITIVOS...';
-    addTerminalLog(`PROCESSANDO RESPOSTA: "${text.toUpperCase()}"`);
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, model: selectedModel })
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      if (data.actionExecuted) {
-        addChatLog('action', data.reply);
-        addTerminalLog(`AÇÃO EXECUTADA: ${data.reply}`);
-      } else {
-        addChatLog('agent', data.reply);
-      }
-
-      if (data.audioUrl) {
-        playerEl.src = `${data.audioUrl}?t=${Date.now()}`;
-        playerEl.play().catch(e => {
-          console.error('[Player] Play blocked:', e);
-          addTerminalLog('AVISO: Áudio foi bloqueado. Clique na tela para permitir.');
-          if (recognition) recognition.start();
-        });
-      } else {
-        if (recognition) recognition.start();
-      }
-    } catch (err) {
-      console.error('[API] Error:', err);
-      addTerminalLog(`FALHA NA REDE COGNITIVA DE COMUNICAÇÃO`);
-      if (recognition) recognition.start();
-    }
-  };
-}
-
-// ═══════════════════════════════════════════════════════
-//  CONTROLES DE INTERAÇÃO
-// ═══════════════════════════════════════════════════════
-
-async function toggleMicrophone() {
-  if (isIA_Speaking) return;
-
-  if (!audioCtx) await initAudioContext();
-  if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
-
-  if (isListening) {
-    if (recognition) recognition.stop();
-    isListening = false;
-    addTerminalLog('MICROFONE DESATIVADO PELO USUÁRIO');
-  } else {
-    try {
-      if (!micStream) {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        connectMicAnalyser(micStream);
-      }
-      if (recognition) recognition.start();
-      addTerminalLog('MICROFONE ATIVADO - CAPTURANDO BIO-SINAIS');
-    } catch (e) {
-      console.error('[Mic] Access error:', e);
-      addTerminalLog('ERRO: Não foi possível obter acesso ao microfone.');
-    }
-  }
-}
-
-document.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-  if (e.code === 'Space') {
-    e.preventDefault();
-    toggleMicrophone();
-  }
-});
-
-if (micTrigger) micTrigger.addEventListener('click', () => toggleMicrophone());
-if (canvas) canvas.addEventListener('click', () => toggleMicrophone());
+(function loop(){requestAnimationFrame(loop);
+if(userAn&&(state===S.ACTIVE||state===S.COMPOUND_LISTEN)){const d=new Uint8Array(userAn.frequencyBinCount);userAn.getByteFrequencyData(d);uVol=d.reduce((a,b)=>a+b,0)/d.length;}else uVol*=0.9;
+if(iaAn&&isIA){const d=new Uint8Array(iaAn.frequencyBinCount);iaAn.getByteFrequencyData(d);iVol=d.reduce((a,b)=>a+b,0)/d.length;}else iVol*=0.9;
+suVol+=(uVol-suVol)*0.18;siVol+=(iVol-siVol)*0.18;
+drawDna();drawBrain();drawSpec();drawHolo();})();

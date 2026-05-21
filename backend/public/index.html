@@ -27,6 +27,7 @@
         <span class="label">// MIGRATING PROCESS</span>
         <span class="value" id="specimen-name">iTude Agent</span>
       </div>
+      <button class="btn btn-gold" id="btn-fullscreen" style="height: 32px; align-self: center; margin-right: 20px;">MODO TELA CHEIA</button>
       <div class="meta-status">
         <div class="meta-item">
           <span class="label">CLASSIFICAÇÃO:</span>
@@ -265,6 +266,29 @@
 
     </footer>
 
+  </div>
+
+  <!-- Modal de Aprendizado Dinâmico de Ações -->
+  <div class="xeno-modal-overlay" id="learning-modal" style="display: none;">
+    <div class="xeno-modal">
+      <div class="modal-header">
+        <span class="title">// SISTEMA DE APRENDIZADO COGNITIVO</span>
+        <span class="dot active"></span>
+      </div>
+      <div class="modal-body">
+        <p>Ainda não conheço as diretrizes para <span id="modal-category-action" style="font-weight: bold; color: var(--neon-purple);">ABRIR</span> o alvo <strong id="modal-target-display" class="cyan">"alvo"</strong> no Linux.</p>
+        <p class="desc">Por favor, insira o comando correspondente abaixo para que eu possa aprender e mapear este comportamento nas minhas sinapses neurais:</p>
+        
+        <div class="control-group" style="margin-top: 15px;">
+          <label class="control-label" id="modal-command-label">COMANDO OU BINÁRIO LINUX</label>
+          <input type="text" id="modal-binary-input" placeholder="Ex: flatpak run app.ytmdesktop.ytmdesktop ou google-chrome">
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end;">
+        <button class="btn btn-gold" id="btn-modal-save">GRAVAR NAS SINAPSES</button>
+        <button class="btn btn-danger" id="btn-modal-cancel" style="margin-left: 10px;">DESCARTAR</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
