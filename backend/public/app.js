@@ -62,6 +62,9 @@ function setState(s){
 
 function playAudio(url){
   if(!url)return false;
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(e => console.log(e));
+  }
   playerEl.src=`${url}?t=${Date.now()}`;
   playerEl.play().catch(e=>{console.error(e);tryRestart();});
   return true;
@@ -255,3 +258,16 @@ if(userAn&&(state===S.ACTIVE||state===S.COMPOUND_LISTEN)){const d=new Uint8Array
 if(iaAn&&isIA){const d=new Uint8Array(iaAn.frequencyBinCount);iaAn.getByteFrequencyData(d);iVol=d.reduce((a,b)=>a+b,0)/d.length;}else iVol*=0.9;
 suVol+=(uVol-suVol)*0.18;siVol+=(iVol-siVol)*0.18;
 drawDna();drawBrain();drawSpec();drawHolo();})();
+
+// ─── Auto Start on Load & Global Click Resume ───
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(activateAgent, 800); // Aguarda a interface assentar e ativa
+});
+
+document.addEventListener('click', async () => {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+    log('CONTEXTO DE ÁUDIO RESUMIDO');
+  }
+});
+
