@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ItudeAgent - Eternos</title>
+  <style>
+    body {
+      background-color: #0d0d0d;
+      color: #e6c55c; /* Dourado suave Eternos */
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+    
+    #status {
+      font-size: 1.5rem;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+    }
+
+    .listening {
+      color: #ff4757;
+      text-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+    }
+
+    .speaking {
+      color: #1e90ff;
+      text-shadow: 0 0 10px rgba(30, 144, 255, 0.5);
+    }
+    
+    .paused {
+      color: #747d8c;
+    }
+    
+    #transcript {
+      font-size: 1.2rem;
+      max-width: 600px;
+      text-align: center;
+      opacity: 0.8;
+      min-height: 3em;
+    }
+
+    .instructions {
+      position: absolute;
+      bottom: 20px;
+      font-size: 0.9rem;
+      color: #a4b0be;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- O player ficará oculto pois não precisamos da interface de mídia dele -->
+  <audio id="player" controls style="display: none;"></audio>
+
+  <div id="status" class="paused">Pausado</div>
+  
+  <div id="transcript">Pressione <kbd>ESPAÇO</kbd> para ativar o mic.</div>
+
+  <div class="instructions">
+    ItudeAgent | FASE 1: Core de Voz STT + Ollama
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
