@@ -66,7 +66,12 @@ function playAudio(url){
     audioCtx.resume().catch(e => console.log(e));
   }
   playerEl.src=`${url}?t=${Date.now()}`;
-  playerEl.play().catch(e=>{console.error(e);tryRestart();});
+  playerEl.play().catch(e=>{
+    console.error(e);
+    log('⚠️ SOM BLOQUEADO: Dê um clique na tela para desbloquear o som!');
+    chat('system', 'Clique em qualquer lugar da tela para permitir que o agente fale!');
+    tryRestart();
+  });
   return true;
 }
 
@@ -216,7 +221,7 @@ if(btnFS)btnFS.addEventListener('click',()=>{
 });
 
 // ─── Settings & Models ───
-async function loadModels(){try{const r=await fetch('/api/models');const d=await r.json();modelSel.innerHTML='';if(d.models&&d.models.length){d.models.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m.toUpperCase();modelSel.appendChild(o);});selectedModel=d.models[0];activeLlmLbl.textContent=selectedModel.split(':')[0].toUpperCase();}else{modelSel.innerHTML='<option>NENHUM MODELO</option>';}}catch(e){modelSel.innerHTML='<option>ERRO</option>';}}
+async function loadModels(){try{const r=await fetch('/api/models');const d=await r.json();modelSel.innerHTML='';if(d.models&&d.models.length){d.models.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m.toUpperCase();modelSel.appendChild(o);});let llamaIndex=d.models.findIndex(m=>m.toLowerCase().includes('llama'));let defaultIdx=llamaIndex!==-1?llamaIndex:0;selectedModel=d.models[defaultIdx];modelSel.value=selectedModel;activeLlmLbl.textContent=selectedModel.split(':')[0].toUpperCase();}else{modelSel.innerHTML='<option>NENHUM MODELO</option>';}}catch(e){modelSel.innerHTML='<option>ERRO</option>';}}
 async function loadSettings(){try{const r=await fetch('/api/settings');const s=await r.json();promptEd.value=s.systemPrompt;voiceSel.innerHTML='';s.availableVoices.forEach(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.name;if(v.id===s.voice)o.selected=true;voiceSel.appendChild(o);});}catch(e){}}
 btnSave.addEventListener('click',async()=>{try{const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice:voiceSel.value,systemPrompt:promptEd.value})});const d=await r.json();if(d.success){log('PERSONALIDADE ATUALIZADA');chat('system','Configuração aplicada.');}}catch(e){}});
 modelSel.addEventListener('change',e=>{selectedModel=e.target.value;activeLlmLbl.textContent=selectedModel.split(':')[0].toUpperCase();});
