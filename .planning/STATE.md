@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 
 Phase: 2 of 3 (Interface Alienígena "Eternos")
 Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-05-21 — Fase 1 Concluída. Transição para o planejamento da Fase 2.
+Status: Ready to execute
+Last activity: 2026-05-21 — Fase 2 planejada e pronta para execução.
 
 Progress: [░░░░░░░░░░] 0%
 
