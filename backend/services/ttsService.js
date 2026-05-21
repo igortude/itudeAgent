@@ -5,6 +5,7 @@ const util = require('util');
 const fs = require('fs');
 
 const execFileAsync = util.promisify(execFile);
+const settingsService = require('./settingsService');
 
 /**
  * Gera um arquivo de áudio localmente usando o script Python tts_helper.py (Edge-TTS).
@@ -19,8 +20,13 @@ async function generateAudio(text) {
     fs.mkdirSync(ttsDir, { recursive: true });
   }
 
+  const settings = settingsService.getSettings();
+  const selectedVoice = settings.voice || 'pt-BR-FranciscaNeural';
+  const isKokoro = selectedVoice.startsWith('kokoro-');
+
   const uuid = crypto.randomUUID();
-  const fileName = `output_${uuid}.mp3`;
+  const ext = isKokoro ? 'wav' : 'mp3';
+  const fileName = `output_${uuid}.${ext}`;
   const absoluteOutputPath = path.join(ttsDir, fileName);
 
   const pythonScriptPath = path.join(__dirname, '..', 'helpers', 'tts_helper.py');
@@ -36,7 +42,7 @@ async function generateAudio(text) {
     const { stdout, stderr } = await execFileAsync(pythonBin, [
       pythonScriptPath,
       '--text', text,
-      '--voice', 'pt-BR-FranciscaNeural',
+      '--voice', selectedVoice,
       '--output', absoluteOutputPath
     ]);
     

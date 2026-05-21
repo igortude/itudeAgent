@@ -1,5 +1,6 @@
 const OLLAMA_URL = 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = 'llama3.1'; // ou qwen2.5-coder, conforme configurado
+const settingsService = require('./settingsService');
 
 /**
  * Faz o healthcheck na API do Ollama.
@@ -50,11 +51,8 @@ async function generateResponse(promptText, modelName = OLLAMA_MODEL) {
     return "Estou offline no momento. Respondendo em modo de simulação. Verifique minha conexão local.";
   }
 
-  const systemPrompt = `Você é o ItudeAgent, uma inteligência artificial cósmica e minimalista inspirada no filme Eternos.
-Sua voz é calma, sutil e sua personalidade é elegante e direta. 
-Você SEMPRE responde em Português do Brasil de forma concisa. 
-Nunca dê respostas longas ou cansativas de se ouvir.
-Responda diretamente a isso: `;
+  const settings = settingsService.getSettings();
+  const systemPrompt = settings.systemPrompt + "\nResponda diretamente a isso: ";
 
   try {
     const response = await fetch(`${OLLAMA_URL}/api/generate`, {

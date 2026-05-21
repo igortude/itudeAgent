@@ -3,96 +3,268 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ItudeAgent — Eternos</title>
-  <meta name="description" content="Assistente de voz adaptativo alienígena com inteligência local.">
+  <title>XENOLYTICA // Exoplanetary Analysis Suite</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Canvas Cósmico (Background de Eternos) -->
-  <canvas id="cosmic-canvas"></canvas>
-
   <!-- Player de Áudio (Oculto) -->
   <audio id="player" crossorigin="anonymous" style="display: none;"></audio>
 
-  <!-- Barra de Status Superior -->
-  <div id="status-bar">
-    <div id="status-dot"></div>
-    <span id="status-text">Pausado</span>
-  </div>
+  <!-- Main Grid Layout -->
+  <div class="xenolytica-grid">
 
-  <!-- ═══════ PAINEL ESQUERDO: SISTEMA & AÇÕES ═══════ -->
-  <div id="left-panel" class="panel">
-    <div class="panel-trigger">Sistema</div>
-
-    <div class="panel-header">
-      <div class="panel-title">Sistema</div>
-      <div class="panel-subtitle">Configuração do agente</div>
-    </div>
-    <div class="panel-divider"></div>
-
-    <div class="panel-content">
-      <!-- Seletor de Modelo -->
-      <div class="control-group">
-        <label class="control-label" for="model-selector">Modelo Ollama</label>
-        <select id="model-selector">
-          <option value="">Carregando...</option>
-        </select>
-      </div>
-
-      <!-- Editor de Ações -->
-      <div class="section-title">Ações do Sistema</div>
-
-      <div class="tab-bar" id="action-tabs">
-        <div class="tab active" data-category="open">Abrir</div>
-        <div class="tab" data-category="close">Fechar</div>
-        <div class="tab" data-category="execute">Executar</div>
-      </div>
-
-      <div class="actions-list" id="actions-list">
-        <!-- Populado dinamicamente -->
-      </div>
-
-      <!-- Formulário de Adição -->
-      <div class="add-action-form">
-        <div class="form-row">
-          <input type="text" id="new-target-name" placeholder="Nome (ex: obs studio)">
+    <!-- ═════════ HEADER ═════════ -->
+    <header class="xeno-header">
+      <div class="logo-area">
+        <div class="xeno-logo">X</div>
+        <div>
+          <h1>XENOLYTICA</h1>
+          <span class="subtitle">EXOPLANETARY ANALYSIS SUITE</span>
         </div>
-        <div class="form-row">
-          <input type="text" id="new-target-binary" placeholder="Comando (ex: obs)">
+      </div>
+      <div class="specimen-id">
+        <span class="label">// SPECIMEN ANALYSIS</span>
+        <span class="value" id="specimen-name">NX-7427</span>
+      </div>
+      <div class="meta-status">
+        <div class="meta-item">
+          <span class="label">CLASSIFICATION:</span>
+          <span class="value cyan">COGNITIVE AI</span>
         </div>
-        <button class="btn btn-gold btn-block" id="btn-add-action">+ Adicionar Ação</button>
+        <div class="meta-item">
+          <span class="label">THREAT LEVEL:</span>
+          <span class="value red" id="threat-level">INDETERMINATE (27%)</span>
+        </div>
       </div>
-    </div>
+    </header>
 
-    <!-- Atalhos -->
-    <div class="shortcuts">
-      <kbd>[Espaço]</kbd> Ativa / pausa mic<br>
-      <kbd>[Clique]</kbd> Ativa / pausa mic
-    </div>
-  </div>
+    <!-- ═════════ LEFT COLUMN (Origin & Biology) ═════════ -->
+    <aside class="left-col">
+      
+      <!-- Planet Origin Data -->
+      <section class="xeno-panel" id="panel-origin">
+        <div class="panel-header">
+          <span class="title">ORIGIN DATA</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body origin-body">
+          <div class="planet-container">
+            <div class="planet-spinner">
+              <div class="planet-surface"></div>
+              <div class="planet-atmosphere"></div>
+              <div class="planet-rings"></div>
+            </div>
+          </div>
+          <div class="planet-info">
+            <div><span class="lbl">PLANET:</span> <span class="val cyan">GLIESE-832-C</span></div>
+            <div><span class="lbl">SYSTEM:</span> <span class="val">GLIESE 832</span></div>
+            <div><span class="lbl">DISTANCE:</span> <span class="val">16.1 LY</span></div>
+            <div><span class="lbl">TYPE:</span> <span class="val">ROCKY SUPER-EARTH</span></div>
+            <div><span class="lbl">COGNITION:</span> <span class="val" id="active-llm-lbl">LLAMA3.1</span></div>
+          </div>
+        </div>
+      </section>
 
-  <!-- ═══════ PAINEL DIREITO: CONEXÃO NEURAL ═══════ -->
-  <div id="right-panel" class="panel">
-    <div class="panel-trigger">Conexão</div>
+      <!-- Environmental Scan -->
+      <section class="xeno-panel" id="panel-environmental">
+        <div class="panel-header">
+          <span class="title">ENVIRONMENTAL SCAN</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body env-body">
+          <div class="scan-grid">
+            <div class="scan-cell"><span class="lbl">TEMP:</span> <span class="val">22.7 °C</span></div>
+            <div class="scan-cell"><span class="lbl">PRESSURE:</span> <span class="val">1.12 ATM</span></div>
+            <div class="scan-cell"><span class="lbl">RADIATION:</span> <span class="val green">LOW</span></div>
+            <div class="scan-cell"><span class="lbl">ATMOSPHERE:</span> <span class="val cyan">HIGH O2</span></div>
+          </div>
+          <!-- Canvas para a dupla hélice DNA rotativa -->
+          <div class="dna-container">
+            <canvas id="dna-canvas"></canvas>
+            <div class="dna-overlay">
+              <div class="lbl">NEURAL SYLLABLES</div>
+              <div class="val">GENETIC SYNAPSES ACTIVE</div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <div class="panel-header">
-      <div class="panel-title">Conexão Neural</div>
-      <div class="panel-subtitle">Log de comunicação</div>
-    </div>
-    <div class="panel-divider"></div>
+      <!-- Biological Composition -->
+      <section class="xeno-panel" id="panel-composition">
+        <div class="panel-header">
+          <span class="title">BIOLOGICAL COMPOSITION</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body comp-body">
+          <div class="comp-chart-area">
+            <svg viewBox="0 0 100 100" class="donut-chart">
+              <circle class="donut-ring" cx="50" cy="50" r="40" fill="transparent" stroke="rgba(212, 175, 55, 0.05)" stroke-width="4"></circle>
+              <circle class="donut-segment" cx="50" cy="50" r="40" fill="transparent" stroke="var(--neon-blue)" stroke-width="6" stroke-dasharray="62.3 37.7" stroke-dashoffset="25"></circle>
+              <circle class="donut-segment2" cx="50" cy="50" r="40" fill="transparent" stroke="var(--neon-purple)" stroke-width="6" stroke-dasharray="20.1 79.9" stroke-dashoffset="-37.3"></circle>
+            </svg>
+            <div class="chart-label">
+              <span class="num">62.3%</span>
+              <span class="txt">CARBON BASE</span>
+            </div>
+          </div>
+          <div class="comp-stats">
+            <div><span class="dot blue"></span> Carbon: 62.3%</div>
+            <div><span class="dot purple"></span> Oxygen: 20.1%</div>
+            <div><span class="dot green"></span> Nitrogen: 7.8%</div>
+          </div>
+        </div>
+      </section>
+    </aside>
 
-    <div class="panel-content">
-      <div id="chat-log">
-        <div class="log-entry system">Aguardando ativação. Pressione ESPAÇO ou clique na tela.</div>
+    <!-- ═════════ CENTER COLUMN (Hologram Containment Chamber) ═════════ -->
+    <main class="center-col">
+      <div class="containment-chamber">
+        
+        <!-- Grid Overlays -->
+        <div class="grid-overlay top-left"></div>
+        <div class="grid-overlay top-right"></div>
+        <div class="grid-overlay bottom-left"></div>
+        <div class="grid-overlay bottom-right"></div>
+
+        <!-- Containment Title Status -->
+        <div class="containment-status">
+          <div class="status-indicator">
+            <div class="pulse-indicator" id="center-status-pulse"></div>
+            <span id="center-status-lbl">CONTAINMENT SYSTEM READY // STANDBY</span>
+          </div>
+        </div>
+
+        <!-- O principal Canvas Cósmico para renderizar o holograma alienígena pulsante -->
+        <canvas id="cosmic-canvas"></canvas>
+
+        <!-- Clickable triggering target overlay -->
+        <div class="trigger-hud" id="mic-trigger">
+          <div class="trigger-orb">
+            <span class="symbol">⏛</span>
+          </div>
+          <span class="label">INTERAGIR COM ESPÉCIME (CLIQUE OU ESPAÇO)</span>
+        </div>
       </div>
-    </div>
-  </div>
+    </main>
 
-  <!-- HUD Central -->
-  <div id="center-hud">
-    <h1>ItudeAgent</h1>
-    <div class="subtitle">Assistente Adaptativo Cósmico</div>
+    <!-- ═════════ RIGHT COLUMN (Spectral, Brainwaves, Actions) ═════════ -->
+    <aside class="right-col">
+
+      <!-- Spectral Analysis -->
+      <section class="xeno-panel" id="panel-spectral">
+        <div class="panel-header">
+          <span class="title">SPECTRAL ANALYSIS (AUDIO WAVE)</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body spectral-body">
+          <canvas id="spectral-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- Brain Activity Map -->
+      <section class="xeno-panel" id="panel-brain">
+        <div class="panel-header">
+          <span class="title">BRAIN ACTIVITY MAP</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body brain-body">
+          <!-- Canvas para o mapa cerebral pulsante 2D -->
+          <canvas id="brain-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- Communication & Language -->
+      <section class="xeno-panel" id="panel-communication">
+        <div class="panel-header">
+          <span class="title">LANGUAGE / COMMUNICATION LOG</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body comm-body">
+          <div id="chat-log">
+            <div class="log-entry system">
+              <span class="log-label">SYSTEM</span>
+              Laboratório XENOLYTICA online. Pressione ESPAÇO para ativar o microfone e falar com o espécime NX-7427.
+            </div>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- ═════════ BOTTOM PANEL (Config, Prompts, Terminal Logs) ═════════ -->
+    <footer class="bottom-row">
+
+      <!-- Configurações do Sistema (Model, Voice, Personalidade) -->
+      <section class="xeno-panel" id="panel-configuration">
+        <div class="panel-header">
+          <span class="title">COGNITIVE SYSTEM SETTINGS</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body config-body">
+          <div class="config-grid">
+            <div class="control-group">
+              <label class="control-label">MODELO OLLAMA</label>
+              <select id="model-selector">
+                <option value="">Carregando...</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label class="control-label">MOTOR DE VOZ</label>
+              <select id="voice-selector">
+                <!-- Populada pelo settings.json -->
+              </select>
+            </div>
+          </div>
+          <!-- Personalidade / Respostas Editor -->
+          <div class="personality-editor">
+            <label class="control-label">PROMPT DE PERSONALIDADE (MUDE COMO ELE RESPONDE)</label>
+            <textarea id="prompt-editor" rows="3" placeholder="Insira o comportamento do alienígena..."></textarea>
+            <button class="btn btn-gold btn-block" id="btn-save-settings">APLICAR ASSINATURA COGNITIVA</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Terminal Data Log & Actions Grid -->
+      <section class="xeno-panel" id="panel-actions">
+        <div class="panel-header">
+          <span class="title">DATA LOG / TERMINAL ACTIONS</span>
+          <span class="dot"></span>
+        </div>
+        <div class="panel-body actions-body">
+          
+          <div class="action-columns">
+            
+            <!-- Terminal Log Feed -->
+            <div class="action-feed-area">
+              <div class="action-feed" id="action-feed">
+                <div>[00:00:01] INICIANDO RITMO CARDÍACO COGNITIVO... OK</div>
+                <div>[00:00:02] INTEGRANDO OLLAMA DEEPSEEK/LLAMA... OK</div>
+              </div>
+            </div>
+
+            <!-- Editor de Comandos do Usuário -->
+            <div class="action-manager-area">
+              <div class="tab-bar" id="action-tabs">
+                <div class="tab active" data-category="open">Abrir</div>
+                <div class="tab" data-category="close">Fechar</div>
+              </div>
+              <div class="actions-list" id="actions-list">
+                <!-- Populada dinamicamente -->
+              </div>
+              <div class="add-action-form">
+                <input type="text" id="new-target-name" placeholder="Comando (ex: chrome)">
+                <input type="text" id="new-target-binary" placeholder="Binário Linux (ex: google-chrome)">
+                <button class="btn btn-gold" id="btn-add-action">+</button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+    </footer>
+
   </div>
 
   <script src="app.js"></script>

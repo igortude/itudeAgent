@@ -159,6 +159,33 @@ app.delete('/api/actions/target', (req, res) => {
   }
 });
 
+// ==========================================
+// API DE CONFIGURAÇÕES DE PERSONALIDADE E VOZ
+// ==========================================
+
+const settingsService = require('./services/settingsService');
+
+/**
+ * Retorna as configurações atuais.
+ */
+app.get('/api/settings', (req, res) => {
+  const currentSettings = settingsService.getSettings();
+  res.json(currentSettings);
+});
+
+/**
+ * Atualiza e salva as configurações de personalidade e voz.
+ */
+app.post('/api/settings', (req, res) => {
+  const { voice, systemPrompt } = req.body;
+  const updated = settingsService.saveSettings({ voice, systemPrompt });
+  if (updated) {
+    res.json({ success: true, settings: updated });
+  } else {
+    res.status(500).json({ error: 'Erro ao salvar configurações.' });
+  }
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`[ItudeAgent] Servidor de comunicação ativo na porta ${PORT}.`);

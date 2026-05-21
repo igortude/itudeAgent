@@ -1,45 +1,149 @@
 {
   "actions": [
     {
-      "keywords": ["abra", "abrir", "abre", "abrindo", "abra o", "abrir o", "abre o"],
+      "keywords": [
+        "abra",
+        "abrir",
+        "abre",
+        "abrindo",
+        "abra o",
+        "abrir o",
+        "abre o"
+      ],
       "category": "open",
       "targets": {
-        "google chrome": { "binary": "google-chrome", "description": "Navegador Google Chrome" },
-        "chrome": { "binary": "google-chrome", "description": "Navegador Google Chrome" },
-        "firefox": { "binary": "firefox", "description": "Navegador Mozilla Firefox" },
-        "navegador": { "binary": "google-chrome", "description": "Navegador padrão" },
-        "terminal": { "binary": "gnome-terminal", "description": "Terminal do sistema" },
-        "gerenciador de arquivos": { "binary": "nautilus", "description": "Gerenciador de arquivos" },
-        "arquivos": { "binary": "nautilus", "description": "Gerenciador de arquivos" },
-        "vscode": { "binary": "code", "description": "Visual Studio Code" },
-        "visual studio code": { "binary": "code", "description": "Visual Studio Code" },
-        "code": { "binary": "code", "description": "Visual Studio Code" },
-        "calculadora": { "binary": "gnome-calculator", "description": "Calculadora" },
-        "spotify": { "binary": "spotify", "description": "Spotify" },
-        "discord": { "binary": "discord", "description": "Discord" },
-        "telegram": { "binary": "telegram-desktop", "description": "Telegram" },
-        "editor de texto": { "binary": "gedit", "description": "Editor de texto" },
-        "configurações": { "binary": "gnome-control-center", "description": "Configurações do sistema" },
-        "monitor do sistema": { "binary": "gnome-system-monitor", "description": "Monitor do sistema" }
+        "google chrome": {
+          "binary": "google-chrome",
+          "description": "Navegador Google Chrome"
+        },
+        "chrome": {
+          "binary": "google-chrome",
+          "description": "Navegador Google Chrome"
+        },
+        "firefox": {
+          "binary": "firefox",
+          "description": "Navegador Mozilla Firefox"
+        },
+        "navegador": {
+          "binary": "google-chrome",
+          "description": "Navegador padrão"
+        },
+        "terminal": {
+          "binary": "gnome-terminal",
+          "description": "Terminal do sistema"
+        },
+        "gerenciador de arquivos": {
+          "binary": "nautilus",
+          "description": "Gerenciador de arquivos"
+        },
+        "arquivos": {
+          "binary": "nautilus",
+          "description": "Gerenciador de arquivos"
+        },
+        "vscode": {
+          "binary": "code",
+          "description": "Visual Studio Code"
+        },
+        "visual studio code": {
+          "binary": "code",
+          "description": "Visual Studio Code"
+        },
+        "code": {
+          "binary": "code",
+          "description": "Visual Studio Code"
+        },
+        "calculadora": {
+          "binary": "gnome-calculator",
+          "description": "Calculadora"
+        },
+        "spotify": {
+          "binary": "spotify",
+          "description": "Spotify"
+        },
+        "discord": {
+          "binary": "ferdium",
+          "description": "Discord"
+        },
+        "telegram": {
+          "binary": "ferdium",
+          "description": "Telegram"
+        },
+        "editor de texto": {
+          "binary": "gedit",
+          "description": "Editor de texto"
+        },
+        "configurações": {
+          "binary": "gnome-control-center",
+          "description": "Configurações do sistema"
+        },
+        "monitor do sistema": {
+          "binary": "gnome-system-monitor",
+          "description": "Monitor do sistema"
+        }
       }
     },
     {
-      "keywords": ["execute", "executar", "executa", "rodar", "roda", "rode"],
+      "keywords": [
+        "execute",
+        "executar",
+        "executa",
+        "rodar",
+        "roda",
+        "rode"
+      ],
       "category": "execute",
       "targets": {}
     },
     {
-      "keywords": ["feche", "fechar", "fecha", "encerrar", "encerre", "encerra", "mata", "matar", "mate"],
+      "keywords": [
+        "feche",
+        "fechar",
+        "fecha",
+        "encerrar",
+        "encerre",
+        "encerra",
+        "mata",
+        "matar",
+        "mate"
+      ],
       "category": "close",
       "targets": {
-        "google chrome": { "binary": "google-chrome", "description": "Navegador Google Chrome" },
-        "chrome": { "binary": "google-chrome", "description": "Navegador Google Chrome" },
-        "firefox": { "binary": "firefox", "description": "Navegador Mozilla Firefox" },
-        "terminal": { "binary": "gnome-terminal", "description": "Terminal do sistema" },
-        "vscode": { "binary": "code", "description": "Visual Studio Code" },
-        "visual studio code": { "binary": "code", "description": "Visual Studio Code" },
-        "spotify": { "binary": "spotify", "description": "Spotify" },
-        "discord": { "binary": "discord", "description": "Discord" }
+        "google chrome": {
+          "binary": "google-chrome",
+          "description": "Navegador Google Chrome"
+        },
+        "chrome": {
+          "binary": "google-chrome",
+          "description": "Navegador Google Chrome"
+        },
+        "firefox": {
+          "binary": "firefox",
+          "description": "Navegador Mozilla Firefox"
+        },
+        "terminal": {
+          "binary": "gnome-terminal",
+          "description": "Terminal do sistema"
+        },
+        "vscode": {
+          "binary": "code",
+          "description": "Visual Studio Code"
+        },
+        "visual studio code": {
+          "binary": "code",
+          "description": "Visual Studio Code"
+        },
+        "spotify": {
+          "binary": "spotify",
+          "description": "Spotify"
+        },
+        "discord": {
+          "binary": "discord",
+          "description": "Discord"
+        },
+        "whatsapp": {
+          "binary": "ferdium",
+          "description": "Whatsapp"
+        }
       }
     }
   ]

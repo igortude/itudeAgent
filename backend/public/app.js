@@ -1,6 +1,5 @@
 // ═══════════════════════════════════════════════════════
-//  ItudeAgent — Frontend Controller
-//  Eternos Cosmic Voice Interface
+//  XENOLYTICA // EXOPLANETARY ANALYSIS CONTROLLER
 // ═══════════════════════════════════════════════════════
 
 // ─── STT Setup ───
@@ -14,13 +13,30 @@ if (SpeechRecognition) {
 }
 
 // ─── DOM Elements ───
-const statusDot = document.getElementById('status-dot');
-const statusText = document.getElementById('status-text');
+const activeLlmLbl = document.getElementById('active-llm-lbl');
 const chatLog = document.getElementById('chat-log');
 const playerEl = document.getElementById('player');
 const modelSelector = document.getElementById('model-selector');
+const voiceSelector = document.getElementById('voice-selector');
+const promptEditor = document.getElementById('prompt-editor');
+const btnSaveSettings = document.getElementById('btn-save-settings');
+const actionFeed = document.getElementById('action-feed');
+const centerStatusPulse = document.getElementById('center-status-pulse');
+const centerStatusLbl = document.getElementById('center-status-lbl');
+const micTrigger = document.getElementById('mic-trigger');
+
 const canvas = document.getElementById('cosmic-canvas');
 const ctx = canvas.getContext('2d');
+
+const dnaCanvas = document.getElementById('dna-canvas');
+const dnaCtx = dnaCanvas.getContext('2d');
+
+const spectralCanvas = document.getElementById('spectral-canvas');
+const spectralCtx = spectralCanvas.getContext('2d');
+
+const brainCanvas = document.getElementById('brain-canvas');
+const brainCtx = brainCanvas.getContext('2d');
+
 const actionsList = document.getElementById('actions-list');
 const btnAddAction = document.getElementById('btn-add-action');
 const inputTargetName = document.getElementById('new-target-name');
@@ -40,47 +56,63 @@ let micStream = null;
 let micSourceNode = null;
 let iaSourceNode = null;
 
-// ─── Canvas Config ───
-let W = window.innerWidth;
-let H = window.innerHeight;
+// ─── Canvas Radii ───
+let W = canvas.parentElement.clientWidth;
+let H = canvas.parentElement.clientHeight;
 canvas.width = W;
 canvas.height = H;
 
-let particles = [];
-const MAX_PARTICLES = 100;
+// Fit canvases on resize
+function resizeCanvases() {
+  W = canvas.parentElement.clientWidth;
+  H = canvas.parentElement.clientHeight;
+  canvas.width = W;
+  canvas.height = H;
+  
+  dnaCanvas.width = dnaCanvas.parentElement.clientWidth;
+  dnaCanvas.height = dnaCanvas.parentElement.clientHeight;
+  
+  spectralCanvas.width = spectralCanvas.parentElement.clientWidth;
+  spectralCanvas.height = spectralCanvas.parentElement.clientHeight;
+  
+  brainCanvas.width = brainCanvas.parentElement.clientWidth;
+  brainCanvas.height = brainCanvas.parentElement.clientHeight;
+}
+window.addEventListener('resize', resizeCanvases);
+setTimeout(resizeCanvases, 200);
+
 let rot1 = 0, rot2 = 0, rot3 = 0;
 let userVol = 0, iaVol = 0;
 let smoothUserVol = 0, smoothIaVol = 0;
-
-window.addEventListener('resize', () => {
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = W;
-  canvas.height = H;
-});
+let brainPulse = 0;
 
 // ═══════════════════════════════════════════════════════
-//  LOGGING
+//  TERMINAL & COMMUNICATION LOGGING
 // ═══════════════════════════════════════════════════════
 
-function addLog(type, text) {
+function addTerminalLog(message) {
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.textContent = `[${time}] ${message}`;
+  actionFeed.appendChild(line);
+  actionFeed.scrollTop = actionFeed.scrollHeight;
+}
+
+function addChatLog(type, text) {
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
 
-  if (type === 'user' || type === 'agent' || type === 'action') {
-    const label = document.createElement('span');
-    label.className = 'log-label';
-    label.textContent = type === 'user' ? 'Você' : type === 'agent' ? 'ItudeAgent' : '⚡ Ação';
-    entry.appendChild(label);
-  }
+  const label = document.createElement('span');
+  label.className = 'log-label';
+  label.textContent = type === 'user' ? 'TRANSCRIÇÃO DE VOZ' : type === 'agent' ? 'RESPOSTA DE ESPÉCIME' : type === 'action' ? 'EXECUTOR TERMINAL' : 'SISTEMA';
+  entry.appendChild(label);
 
   const content = document.createTextNode(text);
   entry.appendChild(content);
   chatLog.appendChild(entry);
 
-  // Auto-scroll
-  const panelContent = chatLog.closest('.panel-content');
-  if (panelContent) panelContent.scrollTop = panelContent.scrollHeight;
+  const container = chatLog.parentElement;
+  container.scrollTop = container.scrollHeight;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -102,7 +134,7 @@ async function initAudioContext() {
     iaSourceNode.connect(iaAnalyser);
     iaAnalyser.connect(audioCtx.destination);
 
-    addLog('system', 'Motor de áudio tridimensional ativado.');
+    addTerminalLog('SISTEMA DE ÁUDIO TRIDIMENSIONAL INTEGRADO');
   } catch (e) {
     console.error('[AudioCtx] Init error:', e);
   }
@@ -120,7 +152,7 @@ async function connectMicAnalyser(stream) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  MODELS
+//  SETTINGS & MODEL API
 // ═══════════════════════════════════════════════════════
 
 async function loadModels() {
@@ -132,28 +164,76 @@ async function loadModels() {
       data.models.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m;
-        opt.textContent = m;
+        opt.textContent = m.toUpperCase();
         modelSelector.appendChild(opt);
       });
       selectedModel = data.models[0];
-      addLog('system', `Modelo ativo: ${selectedModel}`);
+      activeLlmLbl.textContent = selectedModel.split(':')[0].toUpperCase();
+      addTerminalLog(`MODELO ATIVO CARREGADO: ${selectedModel}`);
     } else {
-      modelSelector.innerHTML = '<option value="">Nenhum modelo</option>';
+      modelSelector.innerHTML = '<option value="">SEM MODELOS</option>';
     }
   } catch (e) {
-    modelSelector.innerHTML = '<option value="">Erro</option>';
+    modelSelector.innerHTML = '<option value="">ERRO DE CARREGAMENTO</option>';
   }
 }
 
-modelSelector.addEventListener('change', e => {
-  selectedModel = e.target.value;
-  addLog('system', `Modelo alterado: ${selectedModel}`);
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const settings = await res.json();
+    
+    // Configurar o prompt de personalidade
+    promptEditor.value = settings.systemPrompt;
+    
+    // Configurar o seletor de voz
+    voiceSelector.innerHTML = '';
+    settings.availableVoices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = v.name;
+      if (v.id === settings.voice) {
+        opt.selected = true;
+      }
+      voiceSelector.appendChild(opt);
+    });
+    addTerminalLog(`CONFIGURAÇÕES DE ASSINATURA COGNITIVA CARREGADAS`);
+  } catch (e) {
+    console.error('[Settings] Load error:', e);
+  }
+}
+
+btnSaveSettings.addEventListener('click', async () => {
+  const voice = voiceSelector.value;
+  const prompt = promptEditor.value;
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice, systemPrompt: prompt })
+    });
+    const data = await res.json();
+    if (data.success) {
+      addTerminalLog(`ASSINATURA COGNITIVA SALVA COM SUCESSO`);
+      addChatLog('system', 'Personalidade e voz atualizadas no motor exoplanetário.');
+    }
+  } catch (e) {
+    addTerminalLog(`ERRO AO ATUALIZAR CONFIGURAÇÕES`);
+  }
 });
 
+modelSelector.addEventListener('change', e => {
+  selectedModel = e.target.value;
+  activeLlmLbl.textContent = selectedModel.split(':')[0].toUpperCase();
+  addTerminalLog(`COGNITIVE MODEL ALTERADO PARA: ${selectedModel}`);
+});
+
+// Inicializar configs
 loadModels();
+loadSettings();
 
 // ═══════════════════════════════════════════════════════
-//  ACTIONS EDITOR
+//  ACTIONS MANAGEMENT
 // ═══════════════════════════════════════════════════════
 
 async function loadActions() {
@@ -162,7 +242,7 @@ async function loadActions() {
     const data = await res.json();
     renderActions(data, activeActionCategory);
   } catch (e) {
-    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.8rem;">Erro ao carregar ações.</div>';
+    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.65rem;">Erro de rede</div>';
   }
 }
 
@@ -170,7 +250,7 @@ function renderActions(data, category) {
   actionsList.innerHTML = '';
   const group = data.actions.find(a => a.category === category);
   if (!group || Object.keys(group.targets).length === 0) {
-    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.78rem; padding: 8px;">Nenhuma ação cadastrada.</div>';
+    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.62rem; padding: 6px;">Vazio</div>';
     return;
   }
   for (const [name, info] of Object.entries(group.targets)) {
@@ -178,7 +258,7 @@ function renderActions(data, category) {
     item.className = 'action-item';
     item.innerHTML = `
       <div>
-        <span class="action-name">${name}</span>
+        <span class="action-name">${name.toUpperCase()}</span>
         <span class="action-binary">${info.binary}</span>
       </div>
       <button class="btn btn-danger" data-target="${name}" data-category="${category}">✕</button>
@@ -186,7 +266,7 @@ function renderActions(data, category) {
     actionsList.appendChild(item);
   }
 
-  // Bind delete buttons
+  // Bind delete button events
   actionsList.querySelectorAll('.btn-danger').forEach(btn => {
     btn.addEventListener('click', async () => {
       const targetName = btn.dataset.target;
@@ -198,7 +278,7 @@ function renderActions(data, category) {
           body: JSON.stringify({ category: cat, targetName })
         });
         loadActions();
-        addLog('system', `Ação "${targetName}" removida.`);
+        addTerminalLog(`REMOVIDA AÇÃO DOURADA: ${targetName}`);
       } catch (e) {
         console.error('Delete failed:', e);
       }
@@ -206,7 +286,7 @@ function renderActions(data, category) {
   });
 }
 
-// Tab switching
+// Tab Switching
 document.querySelectorAll('#action-tabs .tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('#action-tabs .tab').forEach(t => t.classList.remove('active'));
@@ -216,7 +296,7 @@ document.querySelectorAll('#action-tabs .tab').forEach(tab => {
   });
 });
 
-// Add action
+// Add custom action
 btnAddAction.addEventListener('click', async () => {
   const name = inputTargetName.value.trim();
   const binary = inputTargetBinary.value.trim();
@@ -238,7 +318,7 @@ btnAddAction.addEventListener('click', async () => {
       inputTargetName.value = '';
       inputTargetBinary.value = '';
       loadActions();
-      addLog('system', `Ação "${name}" → "${binary}" adicionada.`);
+      addTerminalLog(`NOVA AÇÃO DE SISTEMA CRIADA: "${name}" → "${binary}"`);
     }
   } catch (e) {
     console.error('Add failed:', e);
@@ -248,107 +328,261 @@ btnAddAction.addEventListener('click', async () => {
 loadActions();
 
 // ═══════════════════════════════════════════════════════
-//  CANVAS ANIMATION (ETERNOS COSMIC GEOMETRY)
+//  DYNAMIC CANVAS VISUALIZATIONS (XENOLYTICA HIGH-TECH)
 // ═══════════════════════════════════════════════════════
 
-class Particle {
-  constructor(x, y, hue) {
-    this.x = x;
-    this.y = y;
-    this.size = Math.random() * 2.5 + 0.5;
-    const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 2.5 + 0.8;
-    this.vx = Math.cos(angle) * speed;
-    this.vy = Math.sin(angle) * speed;
-    this.alpha = 1;
-    this.decay = Math.random() * 0.012 + 0.004;
-    this.hue = hue;
-  }
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.vx *= 0.995;
-    this.vy *= 0.995;
-    this.alpha -= this.decay;
-  }
-  draw() {
-    if (this.alpha <= 0) return;
-    ctx.save();
-    ctx.globalAlpha = this.alpha;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${this.alpha})`;
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = `hsla(${this.hue}, 80%, 50%, 0.5)`;
-    ctx.fill();
-    ctx.restore();
+// ─── 1. DNA HELIX ANGLE ───
+let dnaAngle = 0;
+function drawDnaHelix() {
+  const w = dnaCanvas.width;
+  const h = dnaCanvas.height;
+  dnaCtx.clearRect(0, 0, w, h);
+  
+  const midY = h / 2;
+  const length = w - 20;
+  const amp = 25 + smoothIaVol * 0.4;
+  const speed = 0.04 + smoothUserVol * 0.002;
+  dnaAngle += speed;
+
+  dnaCtx.lineWidth = 1;
+  
+  // Render nodes
+  for (let x = 10; x < w - 10; x += 15) {
+    const offset = (x / length) * Math.PI * 4;
+    const y1 = midY + Math.sin(dnaAngle + offset) * amp;
+    const y2 = midY + Math.sin(dnaAngle + offset + Math.PI) * amp;
+    
+    // Connect bridge
+    dnaCtx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
+    dnaCtx.beginPath();
+    dnaCtx.moveTo(x, y1);
+    dnaCtx.lineTo(x, y2);
+    dnaCtx.stroke();
+    
+    // Ball 1
+    dnaCtx.fillStyle = '#00f3ff';
+    dnaCtx.beginPath();
+    dnaCtx.arc(x, y1, 2, 0, Math.PI * 2);
+    dnaCtx.fill();
+    
+    // Ball 2
+    dnaCtx.fillStyle = '#bc34fa';
+    dnaCtx.beginPath();
+    dnaCtx.arc(x, y2, 2, 0, Math.PI * 2);
+    dnaCtx.fill();
   }
 }
 
-function drawOrbitRing(cx, cy, rx, ry, rotation, lineWidth, alpha) {
+// ─── 2. BRAIN WAVE MAP ───
+const brainNodes = [];
+for (let i = 0; i < 25; i++) {
+  brainNodes.push({
+    x: Math.random() * 200 + 40,
+    y: Math.random() * 80 + 15,
+    r: Math.random() * 1.5 + 0.8,
+    flashRate: Math.random() * 0.05 + 0.01,
+    phase: Math.random() * Math.PI
+  });
+}
+
+function drawBrainCanvas() {
+  const w = brainCanvas.width;
+  const h = brainCanvas.height;
+  brainCtx.clearRect(0, 0, w, h);
+  
+  // Draw glowing grid brain outline
+  brainCtx.save();
+  brainCtx.translate(w/2 - 120, 0);
+  
+  // Render node links
+  brainCtx.lineWidth = 0.5;
+  for (let i = 0; i < brainNodes.length; i++) {
+    const n1 = brainNodes[i];
+    n1.phase += n1.flashRate;
+    const alpha = 0.15 + Math.sin(n1.phase) * 0.15;
+    
+    for (let j = i + 1; j < brainNodes.length; j++) {
+      const n2 = brainNodes[j];
+      const dist = Math.hypot(n1.x - n2.x, n1.y - n2.y);
+      if (dist < 35) {
+        brainCtx.strokeStyle = `rgba(188, 52, 250, ${alpha * (1 - dist / 35)})`;
+        brainCtx.beginPath();
+        brainCtx.moveTo(n1.x, n1.y);
+        brainCtx.lineTo(n2.x, n2.y);
+        brainCtx.stroke();
+      }
+    }
+    
+    // Nodes
+    const pulseVol = (smoothIaVol > 10 ? smoothIaVol * 0.05 : 0);
+    brainCtx.fillStyle = `hsla(280, 85%, 65%, ${alpha + 0.3})`;
+    brainCtx.beginPath();
+    brainCtx.arc(n1.x, n1.y, n1.r + pulseVol, 0, Math.PI * 2);
+    brainCtx.fill();
+  }
+  brainCtx.restore();
+}
+
+// ─── 3. SPECTRAL ANALYSIS FREQUENCY ───
+function drawSpectralCanvas() {
+  const w = spectralCanvas.width;
+  const h = spectralCanvas.height;
+  spectralCtx.clearRect(0, 0, w, h);
+
+  let analyser = null;
+  if (isListening && userAnalyser) analyser = userAnalyser;
+  else if (isIA_Speaking && iaAnalyser) analyser = iaAnalyser;
+  
+  if (analyser) {
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteFrequencyData(dataArray);
+
+    const barWidth = (w / bufferLength) * 2.5;
+    let x = 0;
+
+    for (let i = 0; i < bufferLength; i++) {
+      const barHeight = (dataArray[i] / 255) * h;
+      
+      const r = 0;
+      const g = 243;
+      const b = 255;
+      
+      spectralCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${barHeight / h + 0.1})`;
+      spectralCtx.fillRect(x, h - barHeight, barWidth - 1, barHeight);
+      
+      // glowing peak
+      spectralCtx.fillStyle = 'var(--neon-purple)';
+      spectralCtx.fillRect(x, h - barHeight - 2, barWidth - 1, 2);
+
+      x += barWidth;
+    }
+  } else {
+    // Idle flat line
+    spectralCtx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
+    spectralCtx.lineWidth = 1;
+    spectralCtx.beginPath();
+    spectralCtx.moveTo(0, h / 2);
+    spectralCtx.lineTo(w, h / 2);
+    spectralCtx.stroke();
+  }
+}
+
+// ─── 4. MAIN CENTRAL HOLOGRAM CHAMBER (ALIEN SPECIMEN) ───
+function drawContainmentHologram() {
+  const cx = W / 2;
+  const cy = H / 2;
+  
+  // Translucent backdrop clear
+  ctx.fillStyle = 'rgba(3, 4, 15, 0.15)';
+  ctx.fillRect(0, 0, W, H);
+  
+  const vol = Math.max(smoothUserVol, smoothIaVol);
+  const scale = 1.0 + vol * 0.005;
+
+  rot1 += 0.005 + vol * 0.0001;
+  rot2 -= 0.003 + vol * 0.0001;
+
+  // Concentric holographic outer tube cylinder lines
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(rotation);
+  ctx.scale(scale, scale);
+  
+  // Base rotating cylinder lock rings
+  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
   ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(212, 175, 55, ${alpha})`;
-  ctx.lineWidth = lineWidth;
+  ctx.arc(0, 0, 160, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Ticks and ticks overlays
+  ctx.save();
+  ctx.rotate(rot1);
+  ctx.strokeStyle = 'var(--neon-blue)';
+  ctx.beginPath();
+  ctx.setLineDash([3, 15]);
+  ctx.arc(0, 0, 140, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
-}
 
-function drawCross(cx, cy, size, rotation, alpha) {
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(rotation);
-  ctx.strokeStyle = `rgba(212, 175, 55, ${alpha})`;
-  ctx.lineWidth = 0.5;
+  ctx.rotate(rot2);
+  ctx.strokeStyle = 'var(--neon-purple)';
   ctx.beginPath();
-  ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
-  ctx.moveTo(0, -size); ctx.lineTo(0, size);
+  ctx.setLineDash([8, 30]);
+  ctx.arc(0, 0, 120, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
-}
 
-function drawStarField(cx, cy) {
-  // Subtle background star grid
-  ctx.save();
-  ctx.globalAlpha = 0.03;
-  ctx.strokeStyle = '#d4af37';
-  ctx.lineWidth = 0.3;
+  // Center vector geometry alien "NX-7427 Core"
+  // Inspired by movie Eternos, glowing wireframe geometric lock
+  ctx.lineWidth = 1;
+  let activeHue = isListening ? '350' : isIA_Speaking ? '280' : '185';
+  
+  ctx.strokeStyle = `hsla(${activeHue}, 90%, 60%, 0.3)`;
+  ctx.beginPath();
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 3) * i;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle) * 600, cy + Math.sin(angle) * 600);
-    ctx.stroke();
+    const angle = (Math.PI / 3) * i + rot1 * 0.5;
+    const r1 = 30 + vol * 0.2;
+    const r2 = 70 + vol * 0.4;
+    ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1);
+    ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2);
   }
-  // Concentric background rings
-  for (let r = 100; r < 500; r += 80) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.stroke();
+  ctx.stroke();
+
+  // Outer core polygon
+  ctx.strokeStyle = `hsla(${activeHue}, 90%, 65%, 0.5)`;
+  ctx.beginPath();
+  for (let i = 0; i <= 6; i++) {
+    const angle = (Math.PI / 3) * i + rot1 * 0.5;
+    const r = 70 + vol * 0.4;
+    const tx = Math.cos(angle) * r;
+    const ty = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(tx, ty);
+    else ctx.lineTo(tx, ty);
   }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Center focal core
+  ctx.fillStyle = `hsla(${activeHue}, 90%, 60%, ${0.1 + vol * 0.003})`;
+  ctx.shadowBlur = 20 + vol * 0.2;
+  ctx.shadowColor = `hsla(${activeHue}, 90%, 55%, 0.5)`;
+  ctx.beginPath();
+  ctx.arc(0, 0, 30 + vol * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0; // reset
+
+  // Scanning laser lines sweeping up/down
+  const scanY = Math.sin(Date.now() * 0.0018) * 160;
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-160, scanY);
+  ctx.lineTo(160, scanY);
+  ctx.stroke();
+
+  // Draw cyber target dots on corners
+  ctx.fillStyle = 'var(--neon-blue)';
+  ctx.fillRect(-150, -150, 3, 3);
+  ctx.fillRect(150, -150, 3, 3);
+  ctx.fillRect(-150, 150, 3, 3);
+  ctx.fillRect(150, 150, 3, 3);
+
   ctx.restore();
 }
 
+// ─── 5. GLOBAL ANIMATION LOOP ───
 function renderLoop() {
   requestAnimationFrame(renderLoop);
 
-  // Dark translucent clear for particle trails
-  ctx.fillStyle = 'rgba(2, 2, 8, 0.2)';
-  ctx.fillRect(0, 0, W, H);
-
-  const cx = W / 2;
-  const cy = H / 2;
-
-  // Read analyser data
+  // Read volume data
   if (userAnalyser && isListening) {
     const d = new Uint8Array(userAnalyser.frequencyBinCount);
     userAnalyser.getByteFrequencyData(d);
     userVol = d.reduce((a, b) => a + b, 0) / d.length;
   } else {
-    userVol *= 0.9; // fade out
+    userVol *= 0.9;
   }
 
   if (iaAnalyser && isIA_Speaking) {
@@ -360,65 +594,14 @@ function renderLoop() {
   }
 
   // Smooth interpolation
-  smoothUserVol += (userVol - smoothUserVol) * 0.15;
-  smoothIaVol += (iaVol - smoothIaVol) * 0.15;
-  const vol = Math.max(smoothUserVol, smoothIaVol);
+  smoothUserVol += (userVol - smoothUserVol) * 0.18;
+  smoothIaVol += (iaVol - smoothIaVol) * 0.18;
 
-  // Color selection
-  let hue = 43; // Gold
-  if (isListening) hue = 350; // Red
-  else if (isIA_Speaking) hue = 215; // Blue
-
-  // Spawn particles on volume peaks
-  if (vol > 12 && particles.length < MAX_PARTICLES) {
-    const count = Math.min(Math.floor(vol / 15) + 1, 5);
-    for (let i = 0; i < count; i++) {
-      particles.push(new Particle(cx, cy, hue));
-    }
-  }
-
-  // Update & draw particles
-  particles = particles.filter(p => p.alpha > 0.02);
-  particles.forEach(p => { p.update(); p.draw(); });
-
-  // Background star field
-  drawStarField(cx, cy);
-
-  // Dynamic radii
-  const baseR = 70 + vol * 0.5;
-
-  // Update rotations
-  rot1 += 0.002 + vol * 0.00015;
-  rot2 -= 0.0015 + vol * 0.0001;
-  rot3 += 0.004 + vol * 0.0002;
-
-  // Draw orbital rings
-  const alpha = 0.12 + (vol / 255) * 0.4;
-  drawOrbitRing(cx, cy, baseR * 2.2, baseR * 2.2, 0, 0.8, alpha * 0.4);
-  drawOrbitRing(cx, cy, baseR * 1.6, baseR * 1.6, rot1, 1, alpha * 0.7);
-  drawOrbitRing(cx, cy, baseR * 1.1, baseR * 0.5, rot2, 1.2, alpha);
-  drawOrbitRing(cx, cy, baseR * 0.7, baseR * 0.7, rot3, 0.6, alpha * 0.5);
-
-  // Cross lines
-  drawCross(cx, cy, baseR * 2.5, rot3 * 0.5, alpha * 0.3);
-
-  // Central focus rune
-  const coreAlpha = 0.08 + (vol / 255) * 0.25;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, baseR * 0.25, 0, Math.PI * 2);
-  ctx.fillStyle = `hsla(${hue}, 60%, 55%, ${coreAlpha})`;
-  ctx.shadowBlur = 30;
-  ctx.shadowColor = `hsla(${hue}, 70%, 50%, ${coreAlpha})`;
-  ctx.fill();
-
-  // Core ring
-  ctx.beginPath();
-  ctx.arc(cx, cy, baseR * 0.25, 0, Math.PI * 2);
-  ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${alpha})`;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.restore();
+  // Run render loops
+  drawDnaHelix();
+  drawBrainCanvas();
+  drawSpectralCanvas();
+  drawContainmentHologram();
 }
 
 renderLoop();
@@ -431,21 +614,30 @@ playerEl.addEventListener('play', () => {
   isIA_Speaking = true;
   isListening = false;
   if (recognition) recognition.stop();
-  setStatus('speaking', 'Respondendo');
+  
+  // Set UI state
+  centerStatusPulse.className = 'pulse-indicator speaking';
+  centerStatusLbl.textContent = 'CONVERSATIONAL TRANSMISSION IN PROGRESS';
 });
 
 playerEl.addEventListener('ended', () => {
   isIA_Speaking = false;
+  
+  // Reset UI
+  centerStatusPulse.className = 'pulse-indicator';
+  centerStatusLbl.textContent = 'CONTAINMENT SYSTEM READY // STANDBY';
+  
   if (recognition) {
     recognition.start();
     isListening = true;
-    setStatus('listening', 'Ouvindo');
+    centerStatusPulse.className = 'pulse-indicator active';
+    centerStatusLbl.textContent = 'LISTENING FOR AUDIO WAVE INPUT...';
   }
 });
 
 playerEl.addEventListener('error', (e) => {
   console.error('[Player] Error:', e);
-  addLog('system', 'Erro no player de áudio.');
+  addTerminalLog('ERRO NO MOTOR DE EXECUÇÃO DE ÁUDIO');
   isIA_Speaking = false;
   if (recognition) recognition.start();
 });
@@ -458,20 +650,23 @@ if (recognition) {
   recognition.onstart = () => {
     if (!isIA_Speaking) {
       isListening = true;
-      setStatus('listening', 'Ouvindo');
+      centerStatusPulse.className = 'pulse-indicator active';
+      centerStatusLbl.textContent = 'LISTENING FOR AUDIO WAVE INPUT...';
     }
   };
 
   recognition.onend = () => {
     isListening = false;
-    if (!isIA_Speaking) setStatus('', 'Pausado');
+    if (!isIA_Speaking) {
+      centerStatusPulse.className = 'pulse-indicator';
+      centerStatusLbl.textContent = 'CONTAINMENT SYSTEM READY // STANDBY';
+    }
   };
 
   recognition.onerror = (event) => {
     console.error('[STT] Error:', event.error);
     if (event.error === 'not-allowed') {
-      addLog('system', 'Permissão de microfone negada.');
-      setStatus('', 'Mic Negado');
+      addTerminalLog('ACESSO DE MICROFONE NEGADO');
     }
   };
 
@@ -480,9 +675,12 @@ if (recognition) {
     const text = event.results[idx][0].transcript.trim();
     if (!text) return;
 
-    addLog('user', text);
+    addChatLog('user', text);
     recognition.stop();
-    setStatus('', 'Processando');
+    
+    centerStatusPulse.className = 'pulse-indicator';
+    centerStatusLbl.textContent = 'PROCESSING SPEECH SIGNALS...';
+    addTerminalLog(`PROCESSANDO INTERFACE COGNITIVA: "${text.toUpperCase()}"`);
 
     try {
       const res = await fetch('/api/chat', {
@@ -494,18 +692,20 @@ if (recognition) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Log differently if it was a system action
+      // Show terminal action result
       if (data.actionExecuted) {
-        addLog('action', data.reply);
+        addChatLog('action', data.reply);
+        addTerminalLog(`AÇÃO EXECUTADA COM SUCESSO: ${data.reply}`);
       } else {
-        addLog('agent', data.reply);
+        addChatLog('agent', data.reply);
       }
 
       if (data.audioUrl) {
-        playerEl.src = data.audioUrl;
+        // dynamic cache prevention
+        playerEl.src = `${data.audioUrl}?t=${Date.now()}`;
         playerEl.play().catch(e => {
           console.error('[Player] Play blocked:', e);
-          addLog('system', `Áudio bloqueado: ${e.message}`);
+          addTerminalLog('ÁUDIO BLOQUEADO PELO NAVEGADOR');
           if (recognition) recognition.start();
         });
       } else {
@@ -513,20 +713,10 @@ if (recognition) {
       }
     } catch (err) {
       console.error('[API] Error:', err);
-      addLog('system', `Falha: ${err.message}`);
+      addTerminalLog(`FALHA NA SESSÃO DE CONEXÃO COGNITIVA`);
       if (recognition) recognition.start();
     }
   };
-}
-
-// ═══════════════════════════════════════════════════════
-//  STATUS HELPER
-// ═══════════════════════════════════════════════════════
-
-function setStatus(state, label) {
-  statusDot.className = state;
-  statusText.className = state;
-  statusText.textContent = label;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -542,7 +732,7 @@ async function toggleMicrophone() {
   if (isListening) {
     if (recognition) recognition.stop();
     isListening = false;
-    setStatus('', 'Pausado');
+    addTerminalLog('MIC DESATIVADO PELO ANALISTA');
   } else {
     try {
       if (!micStream) {
@@ -550,16 +740,17 @@ async function toggleMicrophone() {
         connectMicAnalyser(micStream);
       }
       if (recognition) recognition.start();
+      addTerminalLog('MIC ATIVADO — MONITORANDO BIO-SINAIS');
     } catch (e) {
       console.error('[Mic] Access error:', e);
-      addLog('system', 'Erro ao acessar microfone.');
+      addTerminalLog('ERRO DE PERMISSÃO DO MICROFONE');
     }
   }
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
-  // Don't trigger spacebar when typing in input fields
+  // Ignore spacebar when user is typing in inputs or textarea
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
   if (e.code === 'Space') {
     e.preventDefault();
@@ -567,4 +758,4 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-canvas.addEventListener('click', () => toggleMicrophone());
+micTrigger.addEventListener('click', () => toggleMicrophone());
