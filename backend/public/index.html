@@ -4,51 +4,95 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ItudeAgent — Eternos</title>
+  <meta name="description" content="Assistente de voz adaptativo alienígena com inteligência local.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Background Canvas para renderizar a geometria de Eternos -->
+  <!-- Canvas Cósmico (Background de Eternos) -->
   <canvas id="cosmic-canvas"></canvas>
 
-  <!-- Player de áudio oculto para o retorno de TTS -->
-  <audio id="player" controls style="display: none;"></audio>
+  <!-- Player de Áudio (Oculto) -->
+  <audio id="player" crossorigin="anonymous" style="display: none;"></audio>
 
-  <!-- Indicador de Status Central superior -->
-  <div id="top-indicator">Pausado</div>
+  <!-- Barra de Status Superior -->
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <span id="status-text">Pausado</span>
+  </div>
 
-  <!-- Painel Esquerdo (Configurações / Sistema) -->
+  <!-- ═══════ PAINEL ESQUERDO: SISTEMA & AÇÕES ═══════ -->
   <div id="left-panel" class="panel">
     <div class="panel-trigger">Sistema</div>
-    <h2>Sistema</h2>
-    <div class="control-group">
-      <label for="model-selector">Modelo Ollama</label>
-      <select id="model-selector">
-        <option value="">Carregando...</option>
-      </select>
+
+    <div class="panel-header">
+      <div class="panel-title">Sistema</div>
+      <div class="panel-subtitle">Configuração do agente</div>
     </div>
-    <div class="control-group" style="margin-top: auto;">
-      <label>Atalhos</label>
-      <div style="font-size: 0.8rem; color: #888; line-height: 1.5;">
-        <kbd style="color: var(--color-gold);">[Espaço]</kbd> Ativa / Pausa mic<br>
-        <kbd style="color: var(--color-gold);">[Clique Tela]</kbd> Ativa / Pausa mic
+    <div class="panel-divider"></div>
+
+    <div class="panel-content">
+      <!-- Seletor de Modelo -->
+      <div class="control-group">
+        <label class="control-label" for="model-selector">Modelo Ollama</label>
+        <select id="model-selector">
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+
+      <!-- Editor de Ações -->
+      <div class="section-title">Ações do Sistema</div>
+
+      <div class="tab-bar" id="action-tabs">
+        <div class="tab active" data-category="open">Abrir</div>
+        <div class="tab" data-category="close">Fechar</div>
+        <div class="tab" data-category="execute">Executar</div>
+      </div>
+
+      <div class="actions-list" id="actions-list">
+        <!-- Populado dinamicamente -->
+      </div>
+
+      <!-- Formulário de Adição -->
+      <div class="add-action-form">
+        <div class="form-row">
+          <input type="text" id="new-target-name" placeholder="Nome (ex: obs studio)">
+        </div>
+        <div class="form-row">
+          <input type="text" id="new-target-binary" placeholder="Comando (ex: obs)">
+        </div>
+        <button class="btn btn-gold btn-block" id="btn-add-action">+ Adicionar Ação</button>
+      </div>
+    </div>
+
+    <!-- Atalhos -->
+    <div class="shortcuts">
+      <kbd>[Espaço]</kbd> Ativa / pausa mic<br>
+      <kbd>[Clique]</kbd> Ativa / pausa mic
+    </div>
+  </div>
+
+  <!-- ═══════ PAINEL DIREITO: CONEXÃO NEURAL ═══════ -->
+  <div id="right-panel" class="panel">
+    <div class="panel-trigger">Conexão</div>
+
+    <div class="panel-header">
+      <div class="panel-title">Conexão Neural</div>
+      <div class="panel-subtitle">Log de comunicação</div>
+    </div>
+    <div class="panel-divider"></div>
+
+    <div class="panel-content">
+      <div id="chat-log">
+        <div class="log-entry system">Aguardando ativação. Pressione ESPAÇO ou clique na tela.</div>
       </div>
     </div>
   </div>
 
-  <!-- Painel Direito (Logs de Conversa / Conexão) -->
-  <div id="right-panel" class="panel">
-    <div class="panel-trigger">Conexão</div>
-    <h2>Conexão Neural</h2>
-    <div id="chat-log">
-      <div class="log-entry system">Conexão estabelecida com ItudeAgent. Pressione ESPAÇO ou clique no centro da tela para falar.</div>
-    </div>
-  </div>
-
-  <!-- Logo Central de Fundo -->
-  <div id="center-info">
+  <!-- HUD Central -->
+  <div id="center-hud">
     <h1>ItudeAgent</h1>
-    <p>Assistente Adaptativo Cósmico</p>
+    <div class="subtitle">Assistente Adaptativo Cósmico</div>
   </div>
 
   <script src="app.js"></script>

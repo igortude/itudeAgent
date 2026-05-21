@@ -1,4 +1,9 @@
-// Instanciar o STT Web Speech API
+// ═══════════════════════════════════════════════════════
+//  ItudeAgent — Frontend Controller
+//  Eternos Cosmic Voice Interface
+// ═══════════════════════════════════════════════════════
+
+// ─── STT Setup ───
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 if (SpeechRecognition) {
@@ -6,24 +11,28 @@ if (SpeechRecognition) {
   recognition.lang = 'pt-BR';
   recognition.continuous = true;
   recognition.interimResults = false;
-} else {
-  alert("Desculpe, seu navegador não suporta a Web Speech API. Use o Chrome ou Edge para a experiência completa.");
 }
 
-// Elementos DOM
-const topIndicator = document.getElementById('top-indicator');
+// ─── DOM Elements ───
+const statusDot = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
 const chatLog = document.getElementById('chat-log');
 const playerEl = document.getElementById('player');
 const modelSelector = document.getElementById('model-selector');
 const canvas = document.getElementById('cosmic-canvas');
 const ctx = canvas.getContext('2d');
+const actionsList = document.getElementById('actions-list');
+const btnAddAction = document.getElementById('btn-add-action');
+const inputTargetName = document.getElementById('new-target-name');
+const inputTargetBinary = document.getElementById('new-target-binary');
 
-// Estados globais
+// ─── State ───
 let isListening = false;
 let isIA_Speaking = false;
 let selectedModel = '';
+let activeActionCategory = 'open';
 
-// Web Audio API Context
+// ─── Web Audio API ───
 let audioCtx = null;
 let userAnalyser = null;
 let iaAnalyser = null;
@@ -31,437 +40,531 @@ let micStream = null;
 let micSourceNode = null;
 let iaSourceNode = null;
 
-// Configurações do Canvas & Animação
-let canvasWidth = window.innerWidth;
-let canvasHeight = window.innerHeight;
-canvas.width = canvasWidth;
-canvas.height = canvasHeight;
+// ─── Canvas Config ───
+let W = window.innerWidth;
+let H = window.innerHeight;
+canvas.width = W;
+canvas.height = H;
 
-// Partículas
 let particles = [];
-const MAX_PARTICLES = 120;
+const MAX_PARTICLES = 100;
+let rot1 = 0, rot2 = 0, rot3 = 0;
+let userVol = 0, iaVol = 0;
+let smoothUserVol = 0, smoothIaVol = 0;
 
-// Rotações das órbitas
-let rot1 = 0;
-let rot2 = 0;
-let rot3 = 0;
-
-// Médias de volume
-let userVol = 0;
-let iaVol = 0;
-
-// Redimensionamento do canvas
 window.addEventListener('resize', () => {
-  canvasWidth = window.innerWidth;
-  canvasHeight = window.innerHeight;
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
 });
 
-// ==========================================
-// MÉTODOS DE LOG NA UI
-// ==========================================
+// ═══════════════════════════════════════════════════════
+//  LOGGING
+// ═══════════════════════════════════════════════════════
 
 function addLog(type, text) {
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
-  entry.textContent = text;
+
+  if (type === 'user' || type === 'agent' || type === 'action') {
+    const label = document.createElement('span');
+    label.className = 'log-label';
+    label.textContent = type === 'user' ? 'Você' : type === 'agent' ? 'ItudeAgent' : '⚡ Ação';
+    entry.appendChild(label);
+  }
+
+  const content = document.createTextNode(text);
+  entry.appendChild(content);
   chatLog.appendChild(entry);
-  chatLog.scrollTop = chatLog.scrollHeight;
+
+  // Auto-scroll
+  const panelContent = chatLog.closest('.panel-content');
+  if (panelContent) panelContent.scrollTop = panelContent.scrollHeight;
 }
 
-// ==========================================
-// INICIALIZAÇÃO DO WEB AUDIO API
-// ==========================================
+// ═══════════════════════════════════════════════════════
+//  WEB AUDIO API
+// ═══════════════════════════════════════════════════════
 
 async function initAudioContext() {
-  if (audioCtx) return; // Já inicializado
-  
+  if (audioCtx) return;
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Configura analisador do usuário (mic)
+
     userAnalyser = audioCtx.createAnalyser();
-    userAnalyser.fftSize = 128; // Pouco detalhe para performance
-    
-    // Configura analisador da IA (player)
+    userAnalyser.fftSize = 128;
+
     iaAnalyser = audioCtx.createAnalyser();
     iaAnalyser.fftSize = 256;
-    
-    // Conectar elemento de áudio da IA
-    // O MediaElementSource só pode ser criado UMA vez por elemento
+
     iaSourceNode = audioCtx.createMediaElementSource(playerEl);
     iaSourceNode.connect(iaAnalyser);
-    iaAnalyser.connect(audioCtx.destination); // Necessário para sair som nas caixas
-    
-    addLog('system', 'Sistema de áudio tridimensional ativado.');
-  } catch (error) {
-    console.error('[AudioContext] Erro de inicialização:', error);
+    iaAnalyser.connect(audioCtx.destination);
+
+    addLog('system', 'Motor de áudio tridimensional ativado.');
+  } catch (e) {
+    console.error('[AudioCtx] Init error:', e);
   }
 }
 
-// Conectar o microfone à Web Audio API
 async function connectMicAnalyser(stream) {
   if (!audioCtx) await initAudioContext();
-  
   try {
-    if (micSourceNode) {
-      micSourceNode.disconnect();
-    }
+    if (micSourceNode) micSourceNode.disconnect();
     micSourceNode = audioCtx.createMediaStreamSource(stream);
     micSourceNode.connect(userAnalyser);
-  } catch (error) {
-    console.error('[AudioContext] Erro conectando microfone:', error);
+  } catch (e) {
+    console.error('[AudioCtx] Mic connect error:', e);
   }
 }
 
-// ==========================================
-// POPULAR MODELOS OLLAMA
-// ==========================================
+// ═══════════════════════════════════════════════════════
+//  MODELS
+// ═══════════════════════════════════════════════════════
 
 async function loadModels() {
   try {
-    const response = await fetch('/api/models');
-    if (!response.ok) throw new Error('Falha ao obter modelos.');
-    const data = await response.json();
-    
+    const res = await fetch('/api/models');
+    const data = await res.json();
     modelSelector.innerHTML = '';
     if (data.models && data.models.length > 0) {
-      data.models.forEach(model => {
-        const option = document.createElement('option');
-        option.value = model;
-        option.textContent = model;
-        modelSelector.appendChild(option);
+      data.models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        modelSelector.appendChild(opt);
       });
       selectedModel = data.models[0];
-      addLog('system', `Modelo padrão carregado: ${selectedModel}`);
+      addLog('system', `Modelo ativo: ${selectedModel}`);
     } else {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'Sem modelos locais';
-      modelSelector.appendChild(option);
-      addLog('system', 'Aviso: Nenhum modelo de IA encontrado no Ollama local.');
+      modelSelector.innerHTML = '<option value="">Nenhum modelo</option>';
     }
-  } catch (err) {
-    console.error('[Models] Erro:', err);
-    modelSelector.innerHTML = '<option value="">Erro ao carregar</option>';
+  } catch (e) {
+    modelSelector.innerHTML = '<option value="">Erro</option>';
   }
 }
 
-modelSelector.addEventListener('change', (e) => {
+modelSelector.addEventListener('change', e => {
   selectedModel = e.target.value;
-  addLog('system', `Modelo alterado para: ${selectedModel}`);
+  addLog('system', `Modelo alterado: ${selectedModel}`);
 });
 
-// Inicialização de modelos no boot
 loadModels();
 
-// ==========================================
-// ANIMACAO CANVAS (ETERNOS COSMIC GEOMETRY)
-// ==========================================
+// ═══════════════════════════════════════════════════════
+//  ACTIONS EDITOR
+// ═══════════════════════════════════════════════════════
+
+async function loadActions() {
+  try {
+    const res = await fetch('/api/actions');
+    const data = await res.json();
+    renderActions(data, activeActionCategory);
+  } catch (e) {
+    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.8rem;">Erro ao carregar ações.</div>';
+  }
+}
+
+function renderActions(data, category) {
+  actionsList.innerHTML = '';
+  const group = data.actions.find(a => a.category === category);
+  if (!group || Object.keys(group.targets).length === 0) {
+    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.78rem; padding: 8px;">Nenhuma ação cadastrada.</div>';
+    return;
+  }
+  for (const [name, info] of Object.entries(group.targets)) {
+    const item = document.createElement('div');
+    item.className = 'action-item';
+    item.innerHTML = `
+      <div>
+        <span class="action-name">${name}</span>
+        <span class="action-binary">${info.binary}</span>
+      </div>
+      <button class="btn btn-danger" data-target="${name}" data-category="${category}">✕</button>
+    `;
+    actionsList.appendChild(item);
+  }
+
+  // Bind delete buttons
+  actionsList.querySelectorAll('.btn-danger').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const targetName = btn.dataset.target;
+      const cat = btn.dataset.category;
+      try {
+        await fetch('/api/actions/target', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: cat, targetName })
+        });
+        loadActions();
+        addLog('system', `Ação "${targetName}" removida.`);
+      } catch (e) {
+        console.error('Delete failed:', e);
+      }
+    });
+  });
+}
+
+// Tab switching
+document.querySelectorAll('#action-tabs .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#action-tabs .tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeActionCategory = tab.dataset.category;
+    loadActions();
+  });
+});
+
+// Add action
+btnAddAction.addEventListener('click', async () => {
+  const name = inputTargetName.value.trim();
+  const binary = inputTargetBinary.value.trim();
+  if (!name || !binary) return;
+
+  try {
+    const res = await fetch('/api/actions/target', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: activeActionCategory,
+        targetName: name,
+        binary: binary,
+        description: name
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      inputTargetName.value = '';
+      inputTargetBinary.value = '';
+      loadActions();
+      addLog('system', `Ação "${name}" → "${binary}" adicionada.`);
+    }
+  } catch (e) {
+    console.error('Add failed:', e);
+  }
+});
+
+loadActions();
+
+// ═══════════════════════════════════════════════════════
+//  CANVAS ANIMATION (ETERNOS COSMIC GEOMETRY)
+// ═══════════════════════════════════════════════════════
 
 class Particle {
-  constructor(x, y, color) {
+  constructor(x, y, hue) {
     this.x = x;
     this.y = y;
-    this.size = Math.random() * 2 + 1;
+    this.size = Math.random() * 2.5 + 0.5;
     const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 3 + 1;
+    const speed = Math.random() * 2.5 + 0.8;
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
     this.alpha = 1;
-    this.decay = Math.random() * 0.015 + 0.005;
-    this.color = color;
+    this.decay = Math.random() * 0.012 + 0.004;
+    this.hue = hue;
   }
-
   update() {
     this.x += this.vx;
     this.y += this.vy;
+    this.vx *= 0.995;
+    this.vy *= 0.995;
     this.alpha -= this.decay;
   }
-
   draw() {
+    if (this.alpha <= 0) return;
     ctx.save();
     ctx.globalAlpha = this.alpha;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = this.color;
+    ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${this.alpha})`;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = `hsla(${this.hue}, 80%, 50%, 0.5)`;
     ctx.fill();
     ctx.restore();
   }
 }
 
-function renderLoop() {
-  requestAnimationFrame(renderLoop);
-  
-  // Limpar fundo escuro translúcido para deixar trail das partículas
-  ctx.fillStyle = 'rgba(3, 3, 3, 0.25)';
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-  
-  const centerX = canvasWidth / 2;
-  const centerY = canvasHeight / 2;
-  
-  // 1. Processar dados de volume do usuário
-  if (userAnalyser && isListening) {
-    const dataArray = new Uint8Array(userAnalyser.frequencyBinCount);
-    userAnalyser.getByteFrequencyData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      sum += dataArray[i];
-    }
-    userVol = sum / dataArray.length;
-  } else {
-    userVol = 0;
-  }
-
-  // 2. Processar dados de volume da IA
-  if (iaAnalyser && isIA_Speaking) {
-    const dataArray = new Uint8Array(iaAnalyser.frequencyBinCount);
-    iaAnalyser.getByteFrequencyData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      sum += dataArray[i];
-    }
-    iaVol = sum / dataArray.length;
-  } else {
-    iaVol = 0;
-  }
-  
-  // Escolher cor baseado no estado
-  let themeColor = 'rgba(230, 197, 92, 0.8)'; // Dourado fosco (Pausado)
-  let shadowColor = 'rgba(230, 197, 92, 0.3)';
-  
-  if (isListening) {
-    themeColor = 'rgba(255, 71, 87, 0.9)'; // Vermelho (Gravando)
-    shadowColor = 'rgba(255, 71, 87, 0.5)';
-  } else if (isIA_Speaking) {
-    themeColor = 'rgba(30, 144, 255, 0.9)'; // Azul (Falando)
-    shadowColor = 'rgba(30, 144, 255, 0.5)';
-  }
-
-  const volumeFactor = Math.max(userVol, iaVol);
-  
-  // Gerar partículas com base no volume
-  if (volumeFactor > 15 && particles.length < MAX_PARTICLES) {
-    for (let i = 0; i < Math.floor(volumeFactor / 20) + 1; i++) {
-      particles.push(new Particle(centerX, centerY, themeColor));
-    }
-  }
-
-  // Atualizar e desenhar partículas
-  particles = particles.filter(p => p.alpha > 0.05);
-  particles.forEach(p => {
-    p.update();
-    p.draw();
-  });
-
-  // 3. Desenhar órbitas cósmicas / geometria de Eternos
+function drawOrbitRing(cx, cy, rx, ry, rotation, lineWidth, alpha) {
   ctx.save();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = themeColor;
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = shadowColor;
-  
-  // Rotação dinâmica
-  rot1 += 0.003 + (volumeFactor * 0.0003);
-  rot2 -= 0.002 + (volumeFactor * 0.0002);
-  rot3 += 0.005 + (volumeFactor * 0.0005);
-  
-  // Runa central pulsante
-  const baseRadius = 80 + (volumeFactor * 0.4);
-  
-  // Órbita 1 (Externa)
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
   ctx.beginPath();
-  ctx.arc(centerX, centerY, baseRadius * 1.8, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(212, 175, 55, ${alpha})`;
+  ctx.lineWidth = lineWidth;
   ctx.stroke();
-  
-  // Órbita 2 (Intermediária com interrupções)
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, baseRadius * 1.3, rot1, rot1 + Math.PI * 1.5);
-  ctx.stroke();
-  
-  // Órbita 3 (Interna com elipse)
-  ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate(rot2);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, baseRadius * 0.8, baseRadius * 0.4, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-  
-  // Linhas transversais geométricas (cruz sagrada cósmica)
-  ctx.save();
-  ctx.translate(centerX, centerY);
-  ctx.rotate(rot3);
-  ctx.beginPath();
-  ctx.moveTo(-baseRadius * 2, 0);
-  ctx.lineTo(baseRadius * 2, 0);
-  ctx.moveTo(0, -baseRadius * 2);
-  ctx.lineTo(0, baseRadius * 2);
-  ctx.stroke();
-  ctx.restore();
-
-  // Runa / Anel de foco central
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, baseRadius * 0.3, 0, Math.PI * 2);
-  ctx.fillStyle = themeColor.replace('0.9', '0.1').replace('0.8', '0.05');
-  ctx.fill();
-  ctx.stroke();
-
   ctx.restore();
 }
 
-// Iniciar a animação
+function drawCross(cx, cy, size, rotation, alpha) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  ctx.strokeStyle = `rgba(212, 175, 55, ${alpha})`;
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
+  ctx.moveTo(0, -size); ctx.lineTo(0, size);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawStarField(cx, cy) {
+  // Subtle background star grid
+  ctx.save();
+  ctx.globalAlpha = 0.03;
+  ctx.strokeStyle = '#d4af37';
+  ctx.lineWidth = 0.3;
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * 600, cy + Math.sin(angle) * 600);
+    ctx.stroke();
+  }
+  // Concentric background rings
+  for (let r = 100; r < 500; r += 80) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function renderLoop() {
+  requestAnimationFrame(renderLoop);
+
+  // Dark translucent clear for particle trails
+  ctx.fillStyle = 'rgba(2, 2, 8, 0.2)';
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const cy = H / 2;
+
+  // Read analyser data
+  if (userAnalyser && isListening) {
+    const d = new Uint8Array(userAnalyser.frequencyBinCount);
+    userAnalyser.getByteFrequencyData(d);
+    userVol = d.reduce((a, b) => a + b, 0) / d.length;
+  } else {
+    userVol *= 0.9; // fade out
+  }
+
+  if (iaAnalyser && isIA_Speaking) {
+    const d = new Uint8Array(iaAnalyser.frequencyBinCount);
+    iaAnalyser.getByteFrequencyData(d);
+    iaVol = d.reduce((a, b) => a + b, 0) / d.length;
+  } else {
+    iaVol *= 0.9;
+  }
+
+  // Smooth interpolation
+  smoothUserVol += (userVol - smoothUserVol) * 0.15;
+  smoothIaVol += (iaVol - smoothIaVol) * 0.15;
+  const vol = Math.max(smoothUserVol, smoothIaVol);
+
+  // Color selection
+  let hue = 43; // Gold
+  if (isListening) hue = 350; // Red
+  else if (isIA_Speaking) hue = 215; // Blue
+
+  // Spawn particles on volume peaks
+  if (vol > 12 && particles.length < MAX_PARTICLES) {
+    const count = Math.min(Math.floor(vol / 15) + 1, 5);
+    for (let i = 0; i < count; i++) {
+      particles.push(new Particle(cx, cy, hue));
+    }
+  }
+
+  // Update & draw particles
+  particles = particles.filter(p => p.alpha > 0.02);
+  particles.forEach(p => { p.update(); p.draw(); });
+
+  // Background star field
+  drawStarField(cx, cy);
+
+  // Dynamic radii
+  const baseR = 70 + vol * 0.5;
+
+  // Update rotations
+  rot1 += 0.002 + vol * 0.00015;
+  rot2 -= 0.0015 + vol * 0.0001;
+  rot3 += 0.004 + vol * 0.0002;
+
+  // Draw orbital rings
+  const alpha = 0.12 + (vol / 255) * 0.4;
+  drawOrbitRing(cx, cy, baseR * 2.2, baseR * 2.2, 0, 0.8, alpha * 0.4);
+  drawOrbitRing(cx, cy, baseR * 1.6, baseR * 1.6, rot1, 1, alpha * 0.7);
+  drawOrbitRing(cx, cy, baseR * 1.1, baseR * 0.5, rot2, 1.2, alpha);
+  drawOrbitRing(cx, cy, baseR * 0.7, baseR * 0.7, rot3, 0.6, alpha * 0.5);
+
+  // Cross lines
+  drawCross(cx, cy, baseR * 2.5, rot3 * 0.5, alpha * 0.3);
+
+  // Central focus rune
+  const coreAlpha = 0.08 + (vol / 255) * 0.25;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 0.25, 0, Math.PI * 2);
+  ctx.fillStyle = `hsla(${hue}, 60%, 55%, ${coreAlpha})`;
+  ctx.shadowBlur = 30;
+  ctx.shadowColor = `hsla(${hue}, 70%, 50%, ${coreAlpha})`;
+  ctx.fill();
+
+  // Core ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 0.25, 0, Math.PI * 2);
+  ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${alpha})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
 renderLoop();
 
-// ==========================================
-// ORQUESTRAÇÃO DE ÁUDIO & ECO
-// ==========================================
+// ═══════════════════════════════════════════════════════
+//  AUDIO ORCHESTRATION & ECHO PREVENTION
+// ═══════════════════════════════════════════════════════
 
 playerEl.addEventListener('play', () => {
   isIA_Speaking = true;
   isListening = false;
-  
-  if (recognition) {
-    recognition.stop();
-  }
-  
-  topIndicator.textContent = 'Respondendo';
-  topIndicator.className = 'speaking';
+  if (recognition) recognition.stop();
+  setStatus('speaking', 'Respondendo');
 });
 
 playerEl.addEventListener('ended', () => {
   isIA_Speaking = false;
-  
-  // Religamento do microfone pós-fala automático
   if (recognition) {
     recognition.start();
     isListening = true;
-    topIndicator.textContent = 'Ouvindo';
-    topIndicator.className = 'listening';
+    setStatus('listening', 'Ouvindo');
   }
 });
 
-// ==========================================
-// EVENTOS DO RECONHECIMENTO DE VOZ (STT)
-// ==========================================
+playerEl.addEventListener('error', (e) => {
+  console.error('[Player] Error:', e);
+  addLog('system', 'Erro no player de áudio.');
+  isIA_Speaking = false;
+  if (recognition) recognition.start();
+});
+
+// ═══════════════════════════════════════════════════════
+//  STT EVENTS
+// ═══════════════════════════════════════════════════════
 
 if (recognition) {
   recognition.onstart = () => {
     if (!isIA_Speaking) {
       isListening = true;
-      topIndicator.textContent = 'Ouvindo';
-      topIndicator.className = 'listening';
+      setStatus('listening', 'Ouvindo');
     }
   };
 
   recognition.onend = () => {
     isListening = false;
-    if (!isIA_Speaking) {
-      topIndicator.textContent = 'Pausado';
-      topIndicator.className = 'paused';
-    }
+    if (!isIA_Speaking) setStatus('', 'Pausado');
   };
 
   recognition.onerror = (event) => {
-    console.error('[STT] Erro:', event.error);
+    console.error('[STT] Error:', event.error);
     if (event.error === 'not-allowed') {
-      addLog('system', 'Erro: Acesso ao microfone negado pelo navegador.');
-      topIndicator.textContent = 'Acesso ao Mic Negado';
+      addLog('system', 'Permissão de microfone negada.');
+      setStatus('', 'Mic Negado');
     }
   };
 
   recognition.onresult = async (event) => {
-    const lastResultIndex = event.results.length - 1;
-    const transcriptText = event.results[lastResultIndex][0].transcript.trim();
+    const idx = event.results.length - 1;
+    const text = event.results[idx][0].transcript.trim();
+    if (!text) return;
 
-    if (!transcriptText) return;
-
-    addLog('user', transcriptText);
+    addLog('user', text);
     recognition.stop();
-    topIndicator.textContent = 'Processando...';
+    setStatus('', 'Processando');
 
     try {
-      const response = await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: transcriptText,
-          model: selectedModel
-        })
+        body: JSON.stringify({ text, model: selectedModel })
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
 
-      const data = await response.json();
-      addLog('agent', data.reply);
+      // Log differently if it was a system action
+      if (data.actionExecuted) {
+        addLog('action', data.reply);
+      } else {
+        addLog('agent', data.reply);
+      }
 
       if (data.audioUrl) {
         playerEl.src = data.audioUrl;
-        playerEl.play();
+        playerEl.play().catch(e => {
+          console.error('[Player] Play blocked:', e);
+          addLog('system', `Áudio bloqueado: ${e.message}`);
+          if (recognition) recognition.start();
+        });
       } else {
-        recognition.start();
+        if (recognition) recognition.start();
       }
     } catch (err) {
-      console.error('[API] Falha:', err);
-      addLog('system', `Erro na conexão neural: ${err.message}`);
-      recognition.start();
+      console.error('[API] Error:', err);
+      addLog('system', `Falha: ${err.message}`);
+      if (recognition) recognition.start();
     }
   };
 }
 
-// ==========================================
-// CONTROLE DE INTERAÇÃO (SPACE / CLICK)
-// ==========================================
+// ═══════════════════════════════════════════════════════
+//  STATUS HELPER
+// ═══════════════════════════════════════════════════════
+
+function setStatus(state, label) {
+  statusDot.className = state;
+  statusText.className = state;
+  statusText.textContent = label;
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION CONTROLS
+// ═══════════════════════════════════════════════════════
 
 async function toggleMicrophone() {
   if (isIA_Speaking) return;
 
-  // Garante a ativação inicial do AudioContext no primeiro gesto do usuário
-  if (!audioCtx) {
-    await initAudioContext();
-  }
-
-  // Tenta retomar AudioContext se ele foi suspenso pelo navegador
-  if (audioCtx && audioCtx.state === 'suspended') {
-    await audioCtx.resume();
-  }
+  if (!audioCtx) await initAudioContext();
+  if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
 
   if (isListening) {
     if (recognition) recognition.stop();
     isListening = false;
-    topIndicator.textContent = 'Pausado';
-    topIndicator.className = 'paused';
+    setStatus('', 'Pausado');
   } else {
-    // Solicitar permissão de microfone se necessário e capturar o stream para o analisador
     try {
       if (!micStream) {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         connectMicAnalyser(micStream);
       }
       if (recognition) recognition.start();
-    } catch (err) {
-      console.error('[Mic] Erro de acesso:', err);
-      addLog('system', 'Erro: Não foi possível obter acesso ao microfone.');
+    } catch (e) {
+      console.error('[Mic] Access error:', e);
+      addLog('system', 'Erro ao acessar microfone.');
     }
   }
 }
 
-// Atalho Teclado
-document.addEventListener('keydown', (event) => {
-  if (event.repeat) return;
-  
-  if (event.code === 'Space') {
-    event.preventDefault(); // Evita scroll do espaço
+document.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  // Don't trigger spacebar when typing in input fields
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.code === 'Space') {
+    e.preventDefault();
     toggleMicrophone();
   }
 });
 
-// Clique na tela
-canvas.addEventListener('click', () => {
-  toggleMicrophone();
-});
+canvas.addEventListener('click', () => toggleMicrophone());
