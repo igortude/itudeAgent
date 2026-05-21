@@ -1,5 +1,6 @@
 const OLLAMA_URL = 'http://127.0.0.1:11434';
-const OLLAMA_MODEL = 'llama3.1'; // ou qwen2.5-coder, conforme configurado
+//const OLLAMA_MODEL = 'llama3.1'; // ou qwen2.5-coder, conforme configurado
+const OLLAMA_MODEL = 'qwen3'; // ou qwen2.5-coder, conforme configurado
 const settingsService = require('./settingsService');
 
 /**
@@ -10,12 +11,12 @@ async function checkHealth() {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
-    
+
     const response = await fetch(`${OLLAMA_URL}/api/tags`, {
       method: 'GET',
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
     return response.ok;
   } catch (error) {
@@ -46,7 +47,7 @@ async function getModels() {
  */
 async function generateResponse(promptText, modelName = OLLAMA_MODEL) {
   const isHealthy = await checkHealth();
-  
+
   if (!isHealthy) {
     return "Estou offline no momento. Respondendo em modo de simulação. Verifique minha conexão local.";
   }

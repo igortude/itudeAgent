@@ -171,27 +171,43 @@
       }
     },
     {
-      "keywords": ["toque", "tocar", "coloque", "reproduza", "reproduzir", "play", "ponha"],
+      "keywords": [
+        "toque",
+        "tocar",
+        "coloque",
+        "reproduza",
+        "reproduzir",
+        "play",
+        "ponha"
+      ],
       "category": "play",
       "targets": {
         "música": {
           "binary": "flatpak run app.ytmdesktop.ytmdesktop",
           "description": "Player de Música YouTube Music",
           "compound": true,
-          "followUp": "O que você deseja ouvir, senhor?",
-          "searchCommand": "wmctrl -a 'YouTube Music' && sleep 0.8 && WID=\\$(xdotool search --class 'YouTube Music Desktop App' | head -n 1) && xdotool windowactivate --sync \\$WID && xdotool mousemove --window \\$WID 260 50 click 1 && sleep 0.5 && xdotool key ctrl+a BackSpace && xdotool type --delay 50 '{query}' && sleep 1.0 && xdotool key Down Return"
+          "followUp": "O que você deseja ouvir senhor?",
+          "searchCommand": "wmctrl -a 'YouTube Music' && sleep 0.8 && WID=$(xdotool search --class 'YouTube Music Desktop App' | head -n 1) && xdotool windowactivate --sync $WID && xdotool mousemove --window $WID 260 50 click 1 && sleep 0.5 && xdotool key ctrl+a BackSpace && xdotool type --delay 50 '{query}' && sleep 1.0 && xdotool key Down Return"
         },
         "uma música": {
           "binary": "flatpak run app.ytmdesktop.ytmdesktop",
           "description": "Player de Música YouTube Music",
           "compound": true,
-          "followUp": "O que você deseja ouvir, senhor?",
-          "searchCommand": "wmctrl -a 'YouTube Music' && sleep 0.8 && WID=\\$(xdotool search --class 'YouTube Music Desktop App' | head -n 1) && xdotool windowactivate --sync \\$WID && xdotool mousemove --window \\$WID 260 50 click 1 && sleep 0.5 && xdotool key ctrl+a BackSpace && xdotool type --delay 50 '{query}' && sleep 1.0 && xdotool key Down Return"
+          "followUp": "O que você deseja ouvir senhor?",
+          "searchCommand": "wmctrl -a 'YouTube Music' && sleep 0.8 && WID=$(xdotool search --class 'YouTube Music Desktop App' | head -n 1) && xdotool windowactivate --sync $WID && xdotool mousemove --window $WID 260 50 click 1 && sleep 0.5 && xdotool key ctrl+a BackSpace && xdotool type --delay 50 '{query}' && sleep 1.0 && xdotool key Down Return"
         }
       }
     },
     {
-      "keywords": ["pesquise", "pesquisar", "pesquisa", "busque", "buscar", "procure", "procurar"],
+      "keywords": [
+        "pesquise",
+        "pesquisar",
+        "pesquisa",
+        "busque",
+        "buscar",
+        "procure",
+        "procurar"
+      ],
       "category": "search",
       "targets": {}
     }

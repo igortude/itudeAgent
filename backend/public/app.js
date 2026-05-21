@@ -413,9 +413,27 @@ if (statusLblNode) {
 
 drawDna();drawBrain();drawSpec();drawHolo();})();
 
+// ─── Weather Update ───
+async function updateWeatherUI() {
+  try {
+    const res = await fetch('/api/weather');
+    const data = await res.json();
+    if (data && data.success) {
+      const weatherEl = document.getElementById('local-weather');
+      if (weatherEl) {
+        weatherEl.textContent = `${data.temp}°C // ${data.desc.toUpperCase()} (${data.city.toUpperCase()})`;
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao atualizar clima:', e);
+  }
+}
+
 // ─── Auto Start on Load & Global Click Resume ───
 window.addEventListener('DOMContentLoaded', () => {
   setTimeout(activateAgent, 800); // Aguarda a interface assentar e ativa
+  updateWeatherUI();
+  setInterval(updateWeatherUI, 300000); // Atualiza a cada 5 minutos
 });
 
 document.addEventListener('click', async () => {
