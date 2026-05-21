@@ -280,24 +280,71 @@ function drawSpec(){
   }
 }
 
-function drawHolo(){const cx=W/2,cy=H/2;ctx.fillStyle='rgba(3,4,15,0.15)';ctx.fillRect(0,0,W,H);const v=Math.max(suVol,siVol),sc=1+v*0.005;rot1+=0.005+v*0.0001;rot2-=0.003+v*0.0001;ctx.save();ctx.translate(cx,cy);ctx.scale(sc,sc);
-ctx.lineWidth=0.6;ctx.strokeStyle='rgba(0,243,255,0.1)';ctx.beginPath();ctx.arc(0,0,160,0,Math.PI*2);ctx.stroke();
-ctx.save();ctx.rotate(rot1);ctx.strokeStyle='var(--neon-blue)';ctx.setLineDash([3,15]);ctx.beginPath();ctx.arc(0,0,140,0,Math.PI*2);ctx.stroke();ctx.restore();
-ctx.save();ctx.rotate(rot2);ctx.strokeStyle='var(--neon-purple)';ctx.setLineDash([8,30]);ctx.beginPath();ctx.arc(0,0,120,0,Math.PI*2);ctx.stroke();ctx.restore();
-const hue=state===S.ACTIVE||state===S.COMPOUND_LISTEN?'350':isIA?'280':'185';
-ctx.lineWidth=1;ctx.strokeStyle=`hsla(${hue},90%,60%,0.3)`;ctx.beginPath();for(let i=0;i<6;i++){const a=(Math.PI/3)*i+rot1*0.5,r1=30+v*0.2,r2=70+v*0.4;ctx.moveTo(Math.cos(a)*r1,Math.sin(a)*r1);ctx.lineTo(Math.cos(a)*r2,Math.sin(a)*r2);}ctx.stroke();
-ctx.strokeStyle=`hsla(${hue},90%,65%,0.5)`;ctx.beginPath();for(let i=0;i<=6;i++){const a=(Math.PI/3)*i+rot1*0.5,r=70+v*0.4,tx=Math.cos(a)*r,ty=Math.sin(a)*r;i===0?ctx.moveTo(tx,ty):ctx.lineTo(tx,ty);}ctx.closePath();ctx.stroke();
-ctx.fillStyle=`hsla(${hue},90%,60%,${0.1+v*0.003})`;ctx.shadowBlur=20+v*0.2;ctx.shadowColor=`hsla(${hue},90%,55%,0.5)`;ctx.beginPath();ctx.arc(0,0,30+v*0.15,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-const sy=Math.sin(Date.now()*0.0018)*160;ctx.strokeStyle='rgba(0,243,255,0.4)';ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(-160,sy);ctx.lineTo(160,sy);ctx.stroke();
-ctx.restore();}
+// Estrelas lentas no background do canvas cósmico
+const stars = [];
+for (let i = 0; i < 60; i++) {
+  stars.push({
+    x: Math.random() * 400,
+    y: Math.random() * 400,
+    size: Math.random() * 1.5 + 0.5,
+    speed: Math.random() * 0.15 + 0.05,
+    alpha: Math.random()
+  });
+}
+
+function drawHolo(){
+  const w = canvas.width, h = canvas.height;
+  ctx.fillStyle = 'rgba(5, 10, 16, 0.2)';
+  ctx.fillRect(0, 0, w, h);
+  
+  // Atualizar estrelas de background
+  const v = Math.max(suVol, siVol);
+  stars.forEach(s => {
+    s.y += s.speed * (1 + v * 0.06);
+    if (s.y > h) {
+      s.y = 0;
+      s.x = Math.random() * w;
+    }
+    s.alpha = 0.3 + Math.sin(Date.now() * 0.0015 * s.speed * 12) * 0.25;
+    ctx.fillStyle = `rgba(0, 243, 255, ${s.alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
 
 (function loop(){requestAnimationFrame(loop);
 if(userAn&&(state===S.ACTIVE||state===S.COMPOUND_LISTEN)){const d=new Uint8Array(userAn.frequencyBinCount);userAn.getByteFrequencyData(d);uVol=d.reduce((a,b)=>a+b,0)/d.length;}else uVol*=0.9;
 if(isIA){
-  // Simular volume de voz alienígena de forma contínua
   iVol=50+Math.sin(Date.now()*0.015)*18+Math.cos(Date.now()*0.008)*12;
 }else iVol*=0.9;
 suVol+=(uVol-suVol)*0.18;siVol+=(iVol-siVol)*0.18;
+
+// Atualizar variáveis 3D do planeta pulsante
+const maxVol = Math.max(suVol, siVol);
+document.documentElement.style.setProperty('--voice-scale', (1.0 + maxVol * 0.013).toFixed(3));
+
+// Atualizar estado e tema dinamicamente baseados na voz
+const statusLblNode = document.getElementById('voice-status-lbl');
+if (statusLblNode) {
+  if (state === S.ACTIVE || state === S.COMPOUND_LISTEN) {
+    statusLblNode.innerHTML = `Escutando <span>◈</span> Sinais Ativos`;
+    document.documentElement.style.setProperty('--cyan', '#ff0055'); // Vermelho/Rosa escuta
+    document.documentElement.style.setProperty('--magenta', '#00f3ff');
+  } else if (isIA) {
+    statusLblNode.innerHTML = `Emissão <span>◈</span> Resposta Voz`;
+    document.documentElement.style.setProperty('--cyan', '#bc13fe'); // Roxo fala
+    document.documentElement.style.setProperty('--magenta', '#00f3ff');
+  } else if (state === S.PROCESSING) {
+    statusLblNode.innerHTML = `Processando <span>◈</span> Sinapses`;
+    document.documentElement.style.setProperty('--cyan', '#ffea00'); // Amarelo processamento
+  } else {
+    statusLblNode.innerHTML = `Analisando <span>◈</span> Voz Passiva`;
+    document.documentElement.style.setProperty('--cyan', '#00f3ff'); // Ciano normal
+    document.documentElement.style.setProperty('--magenta', '#bc13fe');
+  }
+}
+
 drawDna();drawBrain();drawSpec();drawHolo();})();
 
 // ─── Auto Start on Load & Global Click Resume ───

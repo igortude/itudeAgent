@@ -5,6 +5,207 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>iTude Agent // Suíte de Análise Terrestre</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ═════════ PLANETARY 3D ORBIT VISUALIZER ═════════ */
+    :root {
+      --cyan: #00f3ff;
+      --magenta: #bc13fe;
+      --grid-color: rgba(0, 243, 255, 0.08);
+      --voice-scale: 1;
+    }
+
+    .interface-container {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      perspective: 1000px;
+      margin: auto;
+      top: 50%;
+      transform: translateY(-55%);
+      z-index: 2;
+    }
+
+    .holo-grid {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: 
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size: 20px 20px;
+      transform: rotateX(60deg);
+      animation: pulse-grid 4s ease-in-out infinite;
+      opacity: 0.35;
+    }
+
+    @keyframes pulse-grid {
+      0%, 100% { opacity: 0.25; transform: rotateX(60deg) scale(1); }
+      50% { opacity: 0.45; transform: rotateX(60deg) scale(1.05); }
+    }
+
+    .core {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle, white 0%, var(--cyan) 40%, transparent 70%);
+      border-radius: 50%;
+      box-shadow: 0 0 20px var(--cyan), 0 0 40px var(--cyan);
+      animation: breathe 2s ease-in-out infinite;
+      z-index: 10;
+      transform: scale(var(--voice-scale));
+      transition: transform 0.1s cubic-bezier(0.1, 0.8, 0.3, 1), box-shadow 0.1s ease;
+    }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 20px var(--cyan), 0 0 40px var(--cyan); }
+      50% { box-shadow: 0 0 35px var(--cyan), 0 0 70px var(--cyan), 0 0 10px white inset; }
+    }
+
+    .voice-wave {
+      position: absolute;
+      border: 1.5px solid var(--cyan);
+      border-radius: 50%;
+      animation: ripple 3s infinite cubic-bezier(0.1, 0.2, 0.8, 1);
+      opacity: 0;
+      z-index: 5;
+      width: 40px;
+      height: 40px;
+    }
+
+    .voice-wave:nth-child(2) { animation-delay: 0.6s; }
+    .voice-wave:nth-child(3) { animation-delay: 1.2s; }
+    .voice-wave:nth-child(4) { animation-delay: 1.8s; }
+
+    @keyframes ripple {
+      0% { width: 40px; height: 40px; opacity: 0.8; border-color: var(--cyan); }
+      100% { width: 280px; height: 280px; opacity: 0; border-color: var(--magenta); }
+    }
+
+    .orbit-wrapper {
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      transform-style: preserve-3d;
+    }
+
+    .orbit-wrapper-1 { animation: spin-y 7s linear infinite; }
+    .orbit-wrapper-2 { animation: spin-x 9s linear infinite; transform: rotateY(20deg) rotateX(60deg); }
+    .orbit-wrapper-3 { animation: spin-xy 11s linear infinite; transform: rotateX(90deg); }
+
+    .orbit-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: 1.5px dashed rgba(0, 243, 255, 0.4);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(0, 243, 255, 0.15);
+    }
+
+    .data-node {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background-color: var(--magenta);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--magenta);
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+    }
+
+    .data-node:nth-child(2) { left: 50%; top: 0; transform: translateX(-50%); background-color: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+    .data-node:nth-child(3) { right: 0; left: auto; top: 50%; transform: translateY(-50%); }
+    .data-node:nth-child(4) { left: 50%; bottom: 0; top: auto; transform: translateX(-50%); background-color: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+
+    @keyframes spin-y { 0% { transform: rotateX(70deg) rotateZ(0deg); } 100% { transform: rotateX(70deg) rotateZ(360deg); } }
+    @keyframes spin-x { 0% { transform: rotateY(20deg) rotateX(60deg) rotateZ(0deg); } 100% { transform: rotateY(20deg) rotateX(60deg) rotateZ(-360deg); } }
+    @keyframes spin-xy { 0% { transform: rotateX(90deg) rotateY(0deg); } 100% { transform: rotateX(90deg) rotateY(360deg); } }
+
+    .hud {
+      position: absolute;
+      width: 310px;
+      height: 310px;
+      border: 1px solid rgba(0, 243, 255, 0.15);
+      border-radius: 50%;
+      animation: rotate-hud 25s linear infinite;
+      z-index: 20;
+    }
+
+    .hud::before {
+      content: '';
+      position: absolute;
+      top: -2px; left: -2px; right: -2px; bottom: -2px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--cyan);
+      border-right-color: var(--cyan);
+      animation: rotate-hud 4s linear infinite reverse;
+    }
+
+    .hud-bracket {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      border-color: var(--cyan);
+      border-style: solid;
+      border-width: 0;
+    }
+    .top-l { top: 15px; left: 15px; border-top-width: 2px; border-left-width: 2px; }
+    .top-r { top: 15px; right: 15px; border-top-width: 2px; border-right-width: 2px; }
+    .bot-l { bottom: 15px; left: 15px; border-bottom-width: 2px; border-left-width: 2px; }
+    .bot-r { bottom: 15px; right: 15px; border-bottom-width: 2px; border-right-width: 2px; }
+
+    @keyframes rotate-hud { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .scan-line {
+      position: absolute;
+      width: 100%;
+      height: 1.5px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      box-shadow: 0 0 8px var(--cyan);
+      animation: scan 4s ease-in-out infinite;
+      z-index: 15;
+      opacity: 0.6;
+    }
+
+    @keyframes scan {
+      0%, 100% { top: 10%; opacity: 0; }
+      10% { opacity: 0.6; }
+      90% { opacity: 0.6; }
+      50% { top: 90%; }
+    }
+
+    .voice-status {
+      position: absolute;
+      bottom: -45px;
+      width: 100%;
+      text-align: center;
+      color: var(--cyan);
+      font-size: 11px;
+      font-family: 'Courier New', Courier, monospace;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 5px var(--cyan);
+      animation: blink-text 1.5s steps(2) infinite;
+      z-index: 30;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+    }
+
+    .voice-status span {
+      color: var(--magenta);
+      transition: color 0.3s ease;
+    }
+
+    @keyframes blink-text {
+      0% { opacity: 1; }
+      50% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+  </style>
 </head>
 <body>
 
@@ -120,7 +321,7 @@
 
     <!-- ═════════ CENTER COLUMN (Hologram Containment Chamber) ═════════ -->
     <main class="center-col">
-      <div class="containment-chamber">
+      <div class="containment-chamber" style="position: relative; overflow: hidden;">
         
         <!-- Grid Overlays -->
         <div class="grid-overlay top-left"></div>
@@ -136,11 +337,63 @@
           </div>
         </div>
 
-        <!-- O principal Canvas Cósmico para renderizar o holograma alienígena pulsante -->
-        <canvas id="cosmic-canvas"></canvas>
+        <!-- Canvas Cósmico em Background para Partículas e Estrelas -->
+        <canvas id="cosmic-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></canvas>
+
+        <!-- NOVO VISUALIZADOR 3D PLANETÁRIO ORBITAL -->
+        <div class="interface-container" id="planetary-container">
+            <!-- Grade do Planeta -->
+            <div class="holo-grid"></div>
+            
+            <!-- Núcleo da IA -->
+            <div class="core" id="planetary-core"></div>
+
+            <!-- Ondas de Voz -->
+            <div class="voice-wave" id="wave-1"></div>
+            <div class="voice-wave" id="wave-2"></div>
+            <div class="voice-wave" id="wave-3"></div>
+            <div class="voice-wave" id="wave-4"></div>
+
+            <!-- Anéis de Dados Orbitais -->
+            <div class="orbit-wrapper orbit-wrapper-1">
+                <div class="orbit-ring">
+                    <div class="data-node"></div>
+                    <div class="data-node"></div>
+                </div>
+            </div>
+
+            <div class="orbit-wrapper orbit-wrapper-2">
+                <div class="orbit-ring">
+                    <div class="data-node"></div>
+                    <div class="data-node"></div>
+                    <div class="data-node"></div>
+                </div>
+            </div>
+
+            <div class="orbit-wrapper orbit-wrapper-3">
+                <div class="orbit-ring">
+                    <div class="data-node"></div>
+                    <div class="data-node"></div>
+                </div>
+            </div>
+
+            <!-- Escaneamento de Dados -->
+            <div class="scan-line"></div>
+
+            <!-- HUD de Interface -->
+            <div class="hud" id="planetary-hud">
+                <div class="hud-bracket top-l"></div>
+                <div class="hud-bracket top-r"></div>
+                <div class="hud-bracket bot-l"></div>
+                <div class="hud-bracket bot-r"></div>
+            </div>
+
+            <!-- Status da Voz -->
+            <div class="voice-status" id="voice-status-lbl">Analisando <span>◈</span> Voz Passiva</div>
+        </div>
 
         <!-- Clickable triggering target overlay -->
-        <div class="trigger-hud" id="mic-trigger">
+        <div class="trigger-hud" id="mic-trigger" style="z-index: 10;">
           <div class="trigger-orb">
             <span class="symbol">⏛</span>
           </div>
