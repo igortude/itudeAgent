@@ -28,11 +28,11 @@ echo -e "\033[1;36m[iTude Agent]\033[0m Abrindo navegador autônomo em Tela Chei
 
 # Tentar abrir em modo App Standalone e Tela Cheia usando Chrome/Chromium
 if command -v google-chrome &> /dev/null; then
-  google-chrome --app=http://localhost:3000 --start-fullscreen
+  google-chrome --app=http://localhost:3000 --start-fullscreen --autoplay-policy=no-user-gesture-required
 elif command -v chromium &> /dev/null; then
-  chromium --app=http://localhost:3000 --start-fullscreen
+  chromium --app=http://localhost:3000 --start-fullscreen --autoplay-policy=no-user-gesture-required
 elif command -v google-chrome-stable &> /dev/null; then
-  google-chrome-stable --app=http://localhost:3000 --start-fullscreen
+  google-chrome-stable --app=http://localhost:3000 --start-fullscreen --autoplay-policy=no-user-gesture-required
 else
   echo -e "\033[1;33m[Aviso]\033[0m Google Chrome/Chromium não encontrado. Abrindo navegador padrão..."
   xdg-open http://localhost:3000
