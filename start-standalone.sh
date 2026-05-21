@@ -40,7 +40,7 @@ echo -e "\033[1;36m[iTude Agent]\033[0m Abrindo navegador autônomo com SOM HABI
 #   --disable-features    → Remove bloqueios de autoplay baseados em engajamento
 CHROME_FLAGS=(
   "--app=http://localhost:3000"
-  "--start-fullscreen"
+  "--kiosk"
   "--user-data-dir=$CHROME_PROFILE"
   "--autoplay-policy=no-user-gesture-required"
   "--use-fake-ui-for-media-stream"

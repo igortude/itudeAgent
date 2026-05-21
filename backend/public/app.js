@@ -280,36 +280,89 @@ function drawSpec(){
   }
 }
 
-// Estrelas lentas no background do canvas cósmico
+// Estrelas e glifos alienígenas lentos no background do canvas cósmico
 const stars = [];
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 90; i++) {
   stars.push({
-    x: Math.random() * 400,
-    y: Math.random() * 400,
-    size: Math.random() * 1.5 + 0.5,
-    speed: Math.random() * 0.15 + 0.05,
-    alpha: Math.random()
+    x: Math.random(),
+    y: Math.random(),
+    size: Math.random() * 1.6 + 0.4,
+    speed: Math.random() * 0.0012 + 0.0004,
+    angle: Math.random() * Math.PI * 2
+  });
+}
+
+// Símbolos cósmicos alienígenas dos Eternos
+const GLYPHS = ['◈', '⎔', '⌬', '⏛', '⌬', '⌬', '⎔', '⚙', '❈', '✵'];
+const holoElements = [];
+for (let i = 0; i < 10; i++) {
+  holoElements.push({
+    x: Math.random(),
+    y: Math.random(),
+    glyph: GLYPHS[Math.floor(Math.random() * GLYPHS.length)],
+    size: Math.floor(Math.random() * 14 + 9),
+    speed: Math.random() * 0.0004 + 0.0001,
+    alpha: Math.random() * 0.25,
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.006
   });
 }
 
 function drawHolo(){
   const w = canvas.width, h = canvas.height;
-  ctx.fillStyle = 'rgba(5, 10, 16, 0.2)';
+  ctx.fillStyle = 'rgba(2, 2, 10, 0.22)';
   ctx.fillRect(0, 0, w, h);
   
-  // Atualizar estrelas de background
   const v = Math.max(suVol, siVol);
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // 1. Estrelas se movendo do centro para fora (efeito de dobra/viagem espacial)
   stars.forEach(s => {
-    s.y += s.speed * (1 + v * 0.06);
-    if (s.y > h) {
-      s.y = 0;
-      s.x = Math.random() * w;
+    let px = s.x * w;
+    let py = s.y * h;
+    
+    const angle = Math.atan2(py - cy, px - cx);
+    const dist = Math.hypot(px - cx, py - cy);
+    const speed = (s.speed * w) * (1 + v * 0.08);
+    
+    let newDist = dist + speed;
+    if (newDist > Math.max(w, h)) {
+      newDist = Math.random() * 40;
+      s.x = (cx + Math.cos(angle) * newDist) / w;
+      s.y = (cy + Math.sin(angle) * newDist) / h;
+    } else {
+      s.x = (cx + Math.cos(angle) * newDist) / w;
+      s.y = (cy + Math.sin(angle) * newDist) / h;
     }
-    s.alpha = 0.3 + Math.sin(Date.now() * 0.0015 * s.speed * 12) * 0.25;
-    ctx.fillStyle = `rgba(0, 243, 255, ${s.alpha})`;
+    
+    const alpha = Math.min(0.7, 0.2 + (newDist / (w * 0.7)) * 0.5);
+    ctx.fillStyle = `rgba(0, 243, 255, ${alpha})`;
     ctx.beginPath();
-    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.arc(px, py, s.size * (1 + v * 0.02), 0, Math.PI * 2);
     ctx.fill();
+  });
+
+  // 2. Glifos alienígenas flutuantes e rotacionando lentamente no background
+  holoElements.forEach(he => {
+    he.y -= he.speed * (1 + v * 0.04);
+    if (he.y < -0.1) {
+      he.y = 1.1;
+      he.x = Math.random();
+    }
+    he.rot += he.rotSpeed;
+    
+    ctx.save();
+    ctx.translate(he.x * w, he.y * h);
+    ctx.rotate(he.rot);
+    ctx.font = `${he.size}px 'Share Tech Mono'`;
+    ctx.fillStyle = `rgba(0, 243, 255, ${0.06 + Math.sin(Date.now() * 0.0012) * 0.03})`;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'var(--neon-blue)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(he.glyph, 0, 0);
+    ctx.restore();
   });
 }
 
