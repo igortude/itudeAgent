@@ -1,9 +1,12 @@
 {
-  "voice": "pt-BR-AntonioNeural",
-  "systemPrompt": "Você é o ItudeAgent, uma inteligência artificial cósmica e minimalista inspirada no filme Eternos. Sua voz é calma, sutil e sua personalidade é elegante e direta. Você SEMPRE responde em Português do Brasil de forma concisa. Nunca dê respostas longas ou cansativas de se ouvir.",
+  "voice": "pt-BR-FranciscaNeural",
+  "systemPrompt": "Você é o iTude Agent, uma inteligência artificial terrestre de altíssima fidelidade. Suas respostas são cirúrgicas, inteligentes, objetivas e sempre em português brasileiro (PT-BR). Responda diretamente e de forma natural.",
   "availableVoices": [
-    { "id": "pt-BR-AntonioNeural", "name": "Antonio", "gender": "Masculino" },
-    { "id": "pt-BR-FranciscaNeural", "name": "Francisca", "gender": "Feminino" },
-    { "id": "pt-BR-ThalitaMultilingualNeural", "name": "Thalita", "gender": "Feminino" }
+    { "id": "pt-BR-FranciscaNeural", "name": "Francisca (Azure Female)", "gender": "Feminino" },
+    { "id": "pt-BR-AntonioNeural", "name": "Antonio (Azure Male)", "gender": "Masculino" },
+    { "id": "pt-BR-ThalitaMultilingualNeural", "name": "Thalita (Azure Multilingual)", "gender": "Feminino" },
+    { "id": "kokoro-bella", "name": "Kokoro Offline (Bella)", "gender": "Feminino" },
+    { "id": "kokoro-sarah", "name": "Kokoro Offline (Sarah)", "gender": "Feminino" },
+    { "id": "kokoro-michael", "name": "Kokoro Offline (Michael)", "gender": "Masculino" }
   ]
 }

@@ -1,6 +1,21 @@
 // ═══════════════════════════════════════════════════════
-//  XENOLYTICA // EXOPLANETARY ANALYSIS CONTROLLER
+//  iTude Agent // CONTROLE DE ANÁLISE COGNITIVA
 // ═══════════════════════════════════════════════════════
+
+// ─── Captura Global de Erros para o Feed do Terminal ───
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error("Global Error Caught:", message, "at line", lineno);
+  const time = new Date().toLocaleTimeString();
+  const feed = document.getElementById('action-feed');
+  if (feed) {
+    const line = document.createElement('div');
+    line.style.color = 'var(--neon-red)';
+    line.textContent = `[${time}] [ERRO JS] ${message} (Linha: ${lineno})`;
+    feed.appendChild(line);
+    feed.scrollTop = feed.scrollHeight;
+  }
+  return false;
+};
 
 // ─── STT Setup ───
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -57,29 +72,37 @@ let micSourceNode = null;
 let iaSourceNode = null;
 
 // ─── Canvas Radii ───
-let W = canvas.parentElement.clientWidth;
-let H = canvas.parentElement.clientHeight;
+let W = canvas.parentElement.clientWidth || 400;
+let H = canvas.parentElement.clientHeight || 400;
 canvas.width = W;
 canvas.height = H;
 
-// Fit canvases on resize
+// Ajustar telas no redimensionamento
 function resizeCanvases() {
-  W = canvas.parentElement.clientWidth;
-  H = canvas.parentElement.clientHeight;
-  canvas.width = W;
-  canvas.height = H;
+  if (canvas && canvas.parentElement) {
+    W = canvas.parentElement.clientWidth || 400;
+    H = canvas.parentElement.clientHeight || 400;
+    canvas.width = W;
+    canvas.height = H;
+  }
   
-  dnaCanvas.width = dnaCanvas.parentElement.clientWidth;
-  dnaCanvas.height = dnaCanvas.parentElement.clientHeight;
+  if (dnaCanvas && dnaCanvas.parentElement) {
+    dnaCanvas.width = dnaCanvas.parentElement.clientWidth || 250;
+    dnaCanvas.height = dnaCanvas.parentElement.clientHeight || 110;
+  }
   
-  spectralCanvas.width = spectralCanvas.parentElement.clientWidth;
-  spectralCanvas.height = spectralCanvas.parentElement.clientHeight;
+  if (spectralCanvas && spectralCanvas.parentElement) {
+    spectralCanvas.width = spectralCanvas.parentElement.clientWidth || 300;
+    spectralCanvas.height = spectralCanvas.parentElement.clientHeight || 110;
+  }
   
-  brainCanvas.width = brainCanvas.parentElement.clientWidth;
-  brainCanvas.height = brainCanvas.parentElement.clientHeight;
+  if (brainCanvas && brainCanvas.parentElement) {
+    brainCanvas.width = brainCanvas.parentElement.clientWidth || 300;
+    brainCanvas.height = brainCanvas.parentElement.clientHeight || 110;
+  }
 }
 window.addEventListener('resize', resizeCanvases);
-setTimeout(resizeCanvases, 200);
+setTimeout(resizeCanvases, 300);
 
 let rot1 = 0, rot2 = 0, rot3 = 0;
 let userVol = 0, iaVol = 0;
@@ -87,7 +110,7 @@ let smoothUserVol = 0, smoothIaVol = 0;
 let brainPulse = 0;
 
 // ═══════════════════════════════════════════════════════
-//  TERMINAL & COMMUNICATION LOGGING
+//  LOGS DO TERMINAL & REGISTROS
 // ═══════════════════════════════════════════════════════
 
 function addTerminalLog(message) {
@@ -104,7 +127,12 @@ function addChatLog(type, text) {
 
   const label = document.createElement('span');
   label.className = 'log-label';
-  label.textContent = type === 'user' ? 'TRANSCRIÇÃO DE VOZ' : type === 'agent' ? 'RESPOSTA DE ESPÉCIME' : type === 'action' ? 'EXECUTOR TERMINAL' : 'SISTEMA';
+  
+  if (type === 'user') label.textContent = 'TRANSCRIÇÃO DE VOZ';
+  else if (type === 'agent') label.textContent = 'iTude Agent (RESPOSTA)';
+  else if (type === 'action') label.textContent = 'EXECUTOR TERMINAL';
+  else label.textContent = 'SISTEMA';
+
   entry.appendChild(label);
 
   const content = document.createTextNode(text);
@@ -134,9 +162,10 @@ async function initAudioContext() {
     iaSourceNode.connect(iaAnalyser);
     iaAnalyser.connect(audioCtx.destination);
 
-    addTerminalLog('SISTEMA DE ÁUDIO TRIDIMENSIONAL INTEGRADO');
+    addTerminalLog('MÓDULO COGNITIVO DE ÁUDIO INICIALIZADO');
   } catch (e) {
     console.error('[AudioCtx] Init error:', e);
+    addTerminalLog('ERRO: Navegador bloqueou ou não suporta Web Audio API.');
   }
 }
 
@@ -152,7 +181,7 @@ async function connectMicAnalyser(stream) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  SETTINGS & MODEL API
+//  APIS DE CONFIGURAÇÃO E MODELOS OLLAMA
 // ═══════════════════════════════════════════════════════
 
 async function loadModels() {
@@ -169,12 +198,14 @@ async function loadModels() {
       });
       selectedModel = data.models[0];
       activeLlmLbl.textContent = selectedModel.split(':')[0].toUpperCase();
-      addTerminalLog(`MODELO ATIVO CARREGADO: ${selectedModel}`);
+      addTerminalLog(`MODELO DE LINGUAGEM DETECTADO: ${selectedModel}`);
     } else {
-      modelSelector.innerHTML = '<option value="">SEM MODELOS</option>';
+      modelSelector.innerHTML = '<option value="">NENHUM MODELO ENCONTRADO</option>';
+      addTerminalLog(`AVISO: Nenhum modelo encontrado no Ollama. Verifique se o Ollama está rodando.`);
     }
   } catch (e) {
-    modelSelector.innerHTML = '<option value="">ERRO DE CARREGAMENTO</option>';
+    modelSelector.innerHTML = '<option value="">FALHA AO CONECTAR</option>';
+    addTerminalLog(`ERRO: Falha ao buscar modelos do Ollama backend.`);
   }
 }
 
@@ -197,9 +228,9 @@ async function loadSettings() {
       }
       voiceSelector.appendChild(opt);
     });
-    addTerminalLog(`CONFIGURAÇÕES DE ASSINATURA COGNITIVA CARREGADAS`);
+    addTerminalLog(`ASSINATURA COGNITIVA CARREGADA COM SUCESSO`);
   } catch (e) {
-    console.error('[Settings] Load error:', e);
+    addTerminalLog(`ERRO: Falha ao carregar configurações de voz e prompt.`);
   }
 }
 
@@ -214,26 +245,26 @@ btnSaveSettings.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.success) {
-      addTerminalLog(`ASSINATURA COGNITIVA SALVA COM SUCESSO`);
-      addChatLog('system', 'Personalidade e voz atualizadas no motor exoplanetário.');
+      addTerminalLog(`ASSINATURA COGNITIVA ATUALIZADA COM SUCESSO`);
+      addChatLog('system', 'Personalidade e voz atualizadas com sucesso no agente terrestre.');
     }
   } catch (e) {
-    addTerminalLog(`ERRO AO ATUALIZAR CONFIGURAÇÕES`);
+    addTerminalLog(`ERRO: Não foi possível atualizar a assinatura cognitiva.`);
   }
 });
 
 modelSelector.addEventListener('change', e => {
   selectedModel = e.target.value;
   activeLlmLbl.textContent = selectedModel.split(':')[0].toUpperCase();
-  addTerminalLog(`COGNITIVE MODEL ALTERADO PARA: ${selectedModel}`);
+  addTerminalLog(`MODELO ALTERADO PARA: ${selectedModel}`);
 });
 
-// Inicializar configs
+// Inicializar configs do sistema
 loadModels();
 loadSettings();
 
 // ═══════════════════════════════════════════════════════
-//  ACTIONS MANAGEMENT
+//  GERENCIAMENTO DE COMANDOS RÁPIDOS
 // ═══════════════════════════════════════════════════════
 
 async function loadActions() {
@@ -250,7 +281,7 @@ function renderActions(data, category) {
   actionsList.innerHTML = '';
   const group = data.actions.find(a => a.category === category);
   if (!group || Object.keys(group.targets).length === 0) {
-    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.62rem; padding: 6px;">Vazio</div>';
+    actionsList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.62rem; padding: 6px;">Nenhum comando</div>';
     return;
   }
   for (const [name, info] of Object.entries(group.targets)) {
@@ -266,7 +297,7 @@ function renderActions(data, category) {
     actionsList.appendChild(item);
   }
 
-  // Bind delete button events
+  // Evento dos botões de exclusão
   actionsList.querySelectorAll('.btn-danger').forEach(btn => {
     btn.addEventListener('click', async () => {
       const targetName = btn.dataset.target;
@@ -278,7 +309,7 @@ function renderActions(data, category) {
           body: JSON.stringify({ category: cat, targetName })
         });
         loadActions();
-        addTerminalLog(`REMOVIDA AÇÃO DOURADA: ${targetName}`);
+        addTerminalLog(`COMANDO REMOVIDO: ${targetName.toUpperCase()}`);
       } catch (e) {
         console.error('Delete failed:', e);
       }
@@ -286,7 +317,7 @@ function renderActions(data, category) {
   });
 }
 
-// Tab Switching
+// Troca de abas (Tabs)
 document.querySelectorAll('#action-tabs .tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('#action-tabs .tab').forEach(t => t.classList.remove('active'));
@@ -296,11 +327,14 @@ document.querySelectorAll('#action-tabs .tab').forEach(tab => {
   });
 });
 
-// Add custom action
+// Adicionar ação rápida
 btnAddAction.addEventListener('click', async () => {
   const name = inputTargetName.value.trim();
   const binary = inputTargetBinary.value.trim();
-  if (!name || !binary) return;
+  if (!name || !binary) {
+    addTerminalLog(`AVISO: Digite o nome do comando e o binário Linux correspondente.`);
+    return;
+  }
 
   try {
     const res = await fetch('/api/actions/target', {
@@ -318,22 +352,23 @@ btnAddAction.addEventListener('click', async () => {
       inputTargetName.value = '';
       inputTargetBinary.value = '';
       loadActions();
-      addTerminalLog(`NOVA AÇÃO DE SISTEMA CRIADA: "${name}" → "${binary}"`);
+      addTerminalLog(`NOVO COMANDO CRIPTOGRAFADO: "${name.toUpperCase()}" → "${binary}"`);
     }
   } catch (e) {
-    console.error('Add failed:', e);
+    addTerminalLog(`ERRO: Falha ao registrar novo comando no servidor.`);
   }
 });
 
 loadActions();
 
 // ═══════════════════════════════════════════════════════
-//  DYNAMIC CANVAS VISUALIZATIONS (XENOLYTICA HIGH-TECH)
+//  CANVAS DOURADOS E ANIMAÇÕES
 // ═══════════════════════════════════════════════════════
 
 // ─── 1. DNA HELIX ANGLE ───
 let dnaAngle = 0;
 function drawDnaHelix() {
+  if (!dnaCanvas) return;
   const w = dnaCanvas.width;
   const h = dnaCanvas.height;
   dnaCtx.clearRect(0, 0, w, h);
@@ -346,26 +381,25 @@ function drawDnaHelix() {
 
   dnaCtx.lineWidth = 1;
   
-  // Render nodes
   for (let x = 10; x < w - 10; x += 15) {
     const offset = (x / length) * Math.PI * 4;
     const y1 = midY + Math.sin(dnaAngle + offset) * amp;
     const y2 = midY + Math.sin(dnaAngle + offset + Math.PI) * amp;
     
-    // Connect bridge
+    // Conector
     dnaCtx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
     dnaCtx.beginPath();
     dnaCtx.moveTo(x, y1);
     dnaCtx.lineTo(x, y2);
     dnaCtx.stroke();
     
-    // Ball 1
+    // Nodo 1
     dnaCtx.fillStyle = '#00f3ff';
     dnaCtx.beginPath();
     dnaCtx.arc(x, y1, 2, 0, Math.PI * 2);
     dnaCtx.fill();
     
-    // Ball 2
+    // Nodo 2
     dnaCtx.fillStyle = '#bc34fa';
     dnaCtx.beginPath();
     dnaCtx.arc(x, y2, 2, 0, Math.PI * 2);
@@ -386,15 +420,14 @@ for (let i = 0; i < 25; i++) {
 }
 
 function drawBrainCanvas() {
+  if (!brainCanvas) return;
   const w = brainCanvas.width;
   const h = brainCanvas.height;
   brainCtx.clearRect(0, 0, w, h);
   
-  // Draw glowing grid brain outline
   brainCtx.save();
   brainCtx.translate(w/2 - 120, 0);
   
-  // Render node links
   brainCtx.lineWidth = 0.5;
   for (let i = 0; i < brainNodes.length; i++) {
     const n1 = brainNodes[i];
@@ -413,7 +446,6 @@ function drawBrainCanvas() {
       }
     }
     
-    // Nodes
     const pulseVol = (smoothIaVol > 10 ? smoothIaVol * 0.05 : 0);
     brainCtx.fillStyle = `hsla(280, 85%, 65%, ${alpha + 0.3})`;
     brainCtx.beginPath();
@@ -425,6 +457,7 @@ function drawBrainCanvas() {
 
 // ─── 3. SPECTRAL ANALYSIS FREQUENCY ───
 function drawSpectralCanvas() {
+  if (!spectralCanvas) return;
   const w = spectralCanvas.width;
   const h = spectralCanvas.height;
   spectralCtx.clearRect(0, 0, w, h);
@@ -451,14 +484,12 @@ function drawSpectralCanvas() {
       spectralCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${barHeight / h + 0.1})`;
       spectralCtx.fillRect(x, h - barHeight, barWidth - 1, barHeight);
       
-      // glowing peak
       spectralCtx.fillStyle = 'var(--neon-purple)';
       spectralCtx.fillRect(x, h - barHeight - 2, barWidth - 1, 2);
 
       x += barWidth;
     }
   } else {
-    // Idle flat line
     spectralCtx.strokeStyle = 'rgba(0, 243, 255, 0.15)';
     spectralCtx.lineWidth = 1;
     spectralCtx.beginPath();
@@ -468,12 +499,12 @@ function drawSpectralCanvas() {
   }
 }
 
-// ─── 4. MAIN CENTRAL HOLOGRAM CHAMBER (ALIEN SPECIMEN) ───
+// ─── 4. MAIN CENTRAL HOLOGRAM CHAMBER (iTude Agent HUD) ───
 function drawContainmentHologram() {
+  if (!canvas) return;
   const cx = W / 2;
   const cy = H / 2;
   
-  // Translucent backdrop clear
   ctx.fillStyle = 'rgba(3, 4, 15, 0.15)';
   ctx.fillRect(0, 0, W, H);
   
@@ -483,19 +514,17 @@ function drawContainmentHologram() {
   rot1 += 0.005 + vol * 0.0001;
   rot2 -= 0.003 + vol * 0.0001;
 
-  // Concentric holographic outer tube cylinder lines
   ctx.save();
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
   
-  // Base rotating cylinder lock rings
   ctx.lineWidth = 0.6;
   ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
   ctx.beginPath();
   ctx.arc(0, 0, 160, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Ticks and ticks overlays
+  // Orbita giratória 1
   ctx.save();
   ctx.rotate(rot1);
   ctx.strokeStyle = 'var(--neon-blue)';
@@ -505,6 +534,7 @@ function drawContainmentHologram() {
   ctx.stroke();
   ctx.restore();
 
+  // Orbita giratória 2
   ctx.save();
   ctx.rotate(rot2);
   ctx.strokeStyle = 'var(--neon-purple)';
@@ -514,8 +544,7 @@ function drawContainmentHologram() {
   ctx.stroke();
   ctx.restore();
 
-  // Center vector geometry alien "NX-7427 Core"
-  // Inspired by movie Eternos, glowing wireframe geometric lock
+  // Núcleo central
   ctx.lineWidth = 1;
   let activeHue = isListening ? '350' : isIA_Speaking ? '280' : '185';
   
@@ -530,7 +559,6 @@ function drawContainmentHologram() {
   }
   ctx.stroke();
 
-  // Outer core polygon
   ctx.strokeStyle = `hsla(${activeHue}, 90%, 65%, 0.5)`;
   ctx.beginPath();
   for (let i = 0; i <= 6; i++) {
@@ -544,16 +572,15 @@ function drawContainmentHologram() {
   ctx.closePath();
   ctx.stroke();
 
-  // Center focal core
   ctx.fillStyle = `hsla(${activeHue}, 90%, 60%, ${0.1 + vol * 0.003})`;
   ctx.shadowBlur = 20 + vol * 0.2;
   ctx.shadowColor = `hsla(${activeHue}, 90%, 55%, 0.5)`;
   ctx.beginPath();
   ctx.arc(0, 0, 30 + vol * 0.15, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowBlur = 0; // reset
+  ctx.shadowBlur = 0;
 
-  // Scanning laser lines sweeping up/down
+  // Linhas de laser de varredura
   const scanY = Math.sin(Date.now() * 0.0018) * 160;
   ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
   ctx.lineWidth = 1.2;
@@ -562,7 +589,6 @@ function drawContainmentHologram() {
   ctx.lineTo(160, scanY);
   ctx.stroke();
 
-  // Draw cyber target dots on corners
   ctx.fillStyle = 'var(--neon-blue)';
   ctx.fillRect(-150, -150, 3, 3);
   ctx.fillRect(150, -150, 3, 3);
@@ -576,7 +602,6 @@ function drawContainmentHologram() {
 function renderLoop() {
   requestAnimationFrame(renderLoop);
 
-  // Read volume data
   if (userAnalyser && isListening) {
     const d = new Uint8Array(userAnalyser.frequencyBinCount);
     userAnalyser.getByteFrequencyData(d);
@@ -593,11 +618,9 @@ function renderLoop() {
     iaVol *= 0.9;
   }
 
-  // Smooth interpolation
   smoothUserVol += (userVol - smoothUserVol) * 0.18;
   smoothIaVol += (iaVol - smoothIaVol) * 0.18;
 
-  // Run render loops
   drawDnaHelix();
   drawBrainCanvas();
   drawSpectralCanvas();
@@ -607,7 +630,7 @@ function renderLoop() {
 renderLoop();
 
 // ═══════════════════════════════════════════════════════
-//  AUDIO ORCHESTRATION & ECHO PREVENTION
+//  ORQUESTRACAO E EVITAÇÃO DE ECO / SÍNCRONO
 // ═══════════════════════════════════════════════════════
 
 playerEl.addEventListener('play', () => {
@@ -615,35 +638,33 @@ playerEl.addEventListener('play', () => {
   isListening = false;
   if (recognition) recognition.stop();
   
-  // Set UI state
   centerStatusPulse.className = 'pulse-indicator speaking';
-  centerStatusLbl.textContent = 'CONVERSATIONAL TRANSMISSION IN PROGRESS';
+  centerStatusLbl.textContent = 'TRANSMISSÃO COGNITIVA EM ANDAMENTO';
 });
 
 playerEl.addEventListener('ended', () => {
   isIA_Speaking = false;
   
-  // Reset UI
   centerStatusPulse.className = 'pulse-indicator';
-  centerStatusLbl.textContent = 'CONTAINMENT SYSTEM READY // STANDBY';
+  centerStatusLbl.textContent = 'CÂMARA COGNITIVA PRONTA // AGUARDANDO COMANDO';
   
   if (recognition) {
     recognition.start();
     isListening = true;
     centerStatusPulse.className = 'pulse-indicator active';
-    centerStatusLbl.textContent = 'LISTENING FOR AUDIO WAVE INPUT...';
+    centerStatusLbl.textContent = 'AGUARDANDO ONDAS DE CAPTURA DE VOZ...';
   }
 });
 
 playerEl.addEventListener('error', (e) => {
   console.error('[Player] Error:', e);
-  addTerminalLog('ERRO NO MOTOR DE EXECUÇÃO DE ÁUDIO');
+  addTerminalLog('ERRO: Não foi possível decodificar o arquivo de voz.');
   isIA_Speaking = false;
   if (recognition) recognition.start();
 });
 
 // ═══════════════════════════════════════════════════════
-//  STT EVENTS
+//  STT EVENTOS DE MICROFONE
 // ═══════════════════════════════════════════════════════
 
 if (recognition) {
@@ -651,7 +672,7 @@ if (recognition) {
     if (!isIA_Speaking) {
       isListening = true;
       centerStatusPulse.className = 'pulse-indicator active';
-      centerStatusLbl.textContent = 'LISTENING FOR AUDIO WAVE INPUT...';
+      centerStatusLbl.textContent = 'AGUARDANDO ONDAS DE CAPTURA DE VOZ...';
     }
   };
 
@@ -659,14 +680,14 @@ if (recognition) {
     isListening = false;
     if (!isIA_Speaking) {
       centerStatusPulse.className = 'pulse-indicator';
-      centerStatusLbl.textContent = 'CONTAINMENT SYSTEM READY // STANDBY';
+      centerStatusLbl.textContent = 'CÂMARA COGNITIVA PRONTA // AGUARDANDO COMANDO';
     }
   };
 
   recognition.onerror = (event) => {
     console.error('[STT] Error:', event.error);
     if (event.error === 'not-allowed') {
-      addTerminalLog('ACESSO DE MICROFONE NEGADO');
+      addTerminalLog('ERRO: Permissão de microfone negada no navegador.');
     }
   };
 
@@ -679,8 +700,8 @@ if (recognition) {
     recognition.stop();
     
     centerStatusPulse.className = 'pulse-indicator';
-    centerStatusLbl.textContent = 'PROCESSING SPEECH SIGNALS...';
-    addTerminalLog(`PROCESSANDO INTERFACE COGNITIVA: "${text.toUpperCase()}"`);
+    centerStatusLbl.textContent = 'PROCESSANDO SINAIS COGNITIVOS...';
+    addTerminalLog(`PROCESSANDO RESPOSTA: "${text.toUpperCase()}"`);
 
     try {
       const res = await fetch('/api/chat', {
@@ -692,20 +713,18 @@ if (recognition) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Show terminal action result
       if (data.actionExecuted) {
         addChatLog('action', data.reply);
-        addTerminalLog(`AÇÃO EXECUTADA COM SUCESSO: ${data.reply}`);
+        addTerminalLog(`AÇÃO EXECUTADA: ${data.reply}`);
       } else {
         addChatLog('agent', data.reply);
       }
 
       if (data.audioUrl) {
-        // dynamic cache prevention
         playerEl.src = `${data.audioUrl}?t=${Date.now()}`;
         playerEl.play().catch(e => {
           console.error('[Player] Play blocked:', e);
-          addTerminalLog('ÁUDIO BLOQUEADO PELO NAVEGADOR');
+          addTerminalLog('AVISO: Áudio foi bloqueado. Clique na tela para permitir.');
           if (recognition) recognition.start();
         });
       } else {
@@ -713,14 +732,14 @@ if (recognition) {
       }
     } catch (err) {
       console.error('[API] Error:', err);
-      addTerminalLog(`FALHA NA SESSÃO DE CONEXÃO COGNITIVA`);
+      addTerminalLog(`FALHA NA REDE COGNITIVA DE COMUNICAÇÃO`);
       if (recognition) recognition.start();
     }
   };
 }
 
 // ═══════════════════════════════════════════════════════
-//  INTERACTION CONTROLS
+//  CONTROLES DE INTERAÇÃO
 // ═══════════════════════════════════════════════════════
 
 async function toggleMicrophone() {
@@ -732,7 +751,7 @@ async function toggleMicrophone() {
   if (isListening) {
     if (recognition) recognition.stop();
     isListening = false;
-    addTerminalLog('MIC DESATIVADO PELO ANALISTA');
+    addTerminalLog('MICROFONE DESATIVADO PELO USUÁRIO');
   } else {
     try {
       if (!micStream) {
@@ -740,17 +759,16 @@ async function toggleMicrophone() {
         connectMicAnalyser(micStream);
       }
       if (recognition) recognition.start();
-      addTerminalLog('MIC ATIVADO — MONITORANDO BIO-SINAIS');
+      addTerminalLog('MICROFONE ATIVADO - CAPTURANDO BIO-SINAIS');
     } catch (e) {
       console.error('[Mic] Access error:', e);
-      addTerminalLog('ERRO DE PERMISSÃO DO MICROFONE');
+      addTerminalLog('ERRO: Não foi possível obter acesso ao microfone.');
     }
   }
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
-  // Ignore spacebar when user is typing in inputs or textarea
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
   if (e.code === 'Space') {
     e.preventDefault();
@@ -758,4 +776,5 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-micTrigger.addEventListener('click', () => toggleMicrophone());
+if (micTrigger) micTrigger.addEventListener('click', () => toggleMicrophone());
+if (canvas) canvas.addEventListener('click', () => toggleMicrophone());
