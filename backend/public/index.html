@@ -3,71 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ItudeAgent - Eternos</title>
-  <style>
-    body {
-      background-color: #0d0d0d;
-      color: #e6c55c; /* Dourado suave Eternos */
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      overflow: hidden;
-    }
-    
-    #status {
-      font-size: 1.5rem;
-      letter-spacing: 2px;
-      margin-bottom: 20px;
-      transition: all 0.3s ease;
-      text-transform: uppercase;
-    }
-
-    .listening {
-      color: #ff4757;
-      text-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
-    }
-
-    .speaking {
-      color: #1e90ff;
-      text-shadow: 0 0 10px rgba(30, 144, 255, 0.5);
-    }
-    
-    .paused {
-      color: #747d8c;
-    }
-    
-    #transcript {
-      font-size: 1.2rem;
-      max-width: 600px;
-      text-align: center;
-      opacity: 0.8;
-      min-height: 3em;
-    }
-
-    .instructions {
-      position: absolute;
-      bottom: 20px;
-      font-size: 0.9rem;
-      color: #a4b0be;
-      opacity: 0.5;
-    }
-  </style>
+  <title>ItudeAgent — Eternos</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- O player ficará oculto pois não precisamos da interface de mídia dele -->
+  <!-- Background Canvas para renderizar a geometria de Eternos -->
+  <canvas id="cosmic-canvas"></canvas>
+
+  <!-- Player de áudio oculto para o retorno de TTS -->
   <audio id="player" controls style="display: none;"></audio>
 
-  <div id="status" class="paused">Pausado</div>
-  
-  <div id="transcript">Pressione <kbd>ESPAÇO</kbd> para ativar o mic.</div>
+  <!-- Indicador de Status Central superior -->
+  <div id="top-indicator">Pausado</div>
 
-  <div class="instructions">
-    ItudeAgent | FASE 1: Core de Voz STT + Ollama
+  <!-- Painel Esquerdo (Configurações / Sistema) -->
+  <div id="left-panel" class="panel">
+    <div class="panel-trigger">Sistema</div>
+    <h2>Sistema</h2>
+    <div class="control-group">
+      <label for="model-selector">Modelo Ollama</label>
+      <select id="model-selector">
+        <option value="">Carregando...</option>
+      </select>
+    </div>
+    <div class="control-group" style="margin-top: auto;">
+      <label>Atalhos</label>
+      <div style="font-size: 0.8rem; color: #888; line-height: 1.5;">
+        <kbd style="color: var(--color-gold);">[Espaço]</kbd> Ativa / Pausa mic<br>
+        <kbd style="color: var(--color-gold);">[Clique Tela]</kbd> Ativa / Pausa mic
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel Direito (Logs de Conversa / Conexão) -->
+  <div id="right-panel" class="panel">
+    <div class="panel-trigger">Conexão</div>
+    <h2>Conexão Neural</h2>
+    <div id="chat-log">
+      <div class="log-entry system">Conexão estabelecida com ItudeAgent. Pressione ESPAÇO ou clique no centro da tela para falar.</div>
+    </div>
+  </div>
+
+  <!-- Logo Central de Fundo -->
+  <div id="center-info">
+    <h1>ItudeAgent</h1>
+    <p>Assistente Adaptativo Cósmico</p>
   </div>
 
   <script src="app.js"></script>

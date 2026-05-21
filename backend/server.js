@@ -28,21 +28,29 @@ app.get('/api/health', async (req, res) => {
 });
 
 /**
+ * Retorna os modelos locais disponíveis no Ollama.
+ */
+app.get('/api/models', async (req, res) => {
+  const models = await ollamaService.getModels();
+  res.json({ models });
+});
+
+/**
  * Rota principal de chat (STT -> LLM -> Retorno de Texto).
  * Na próxima etapa será incluída a conversão TTS de áudio.
  */
 app.post('/api/chat', async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, model } = req.body;
     
     if (!text) {
       return res.status(400).json({ error: 'Nenhum texto foi providenciado.' });
     }
     
-    console.log(`[STT] Recebido: "${text}"`);
+    console.log(`[STT] Recebido: "${text}" usando modelo: "${model || 'default'}"`);
     
     // Passar para o LLM processar
-    const reply = await ollamaService.generateResponse(text);
+    const reply = await ollamaService.generateResponse(text, model);
     
     console.log(`[LLM] Respondendo: "${reply}"`);
     

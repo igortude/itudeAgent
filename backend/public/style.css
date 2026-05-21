@@ -1,0 +1,291 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Outfit:wght@300;400;600&display=swap');
+
+:root {
+  --color-bg: #030303;
+  --color-gold: #e6c55c;
+  --color-gold-glow: rgba(230, 197, 92, 0.4);
+  --color-gold-dim: #9a823a;
+  --color-text: #f0f0f0;
+  --color-panel-bg: rgba(10, 10, 10, 0.6);
+  --color-active: #ff4757;
+  --color-active-glow: rgba(255, 71, 87, 0.4);
+  --color-speaking: #1e90ff;
+  --color-speaking-glow: rgba(30, 144, 255, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Outfit', sans-serif;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+}
+
+/* Background Cosmic Canvas */
+#cosmic-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Gavetas Laterais Glassmorphic */
+.panel {
+  position: absolute;
+  top: 5vh;
+  height: 90vh;
+  width: 320px;
+  background: var(--color-panel-bg);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(230, 197, 92, 0.2);
+  border-radius: 12px;
+  z-index: 10;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.panel:hover {
+  border-color: rgba(230, 197, 92, 0.4);
+  box-shadow: 0 0 20px rgba(230, 197, 92, 0.1);
+}
+
+/* Painel Esquerdo (Controle/Sistema) */
+#left-panel {
+  left: 0;
+  transform: translateX(-88%);
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+#left-panel:hover, #left-panel.active {
+  transform: translateX(0);
+}
+
+/* Painel Direito (Conexão/Log) */
+#right-panel {
+  right: 0;
+  transform: translateX(88%);
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+#right-panel:hover, #right-panel.active {
+  transform: translateX(0);
+}
+
+/* Abas de gatilho visual */
+.panel-trigger {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 80px;
+  background: rgba(230, 197, 92, 0.15);
+  border: 1px solid rgba(230, 197, 92, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  color: var(--color-gold);
+  text-transform: uppercase;
+}
+
+#left-panel .panel-trigger {
+  right: -30px;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+#right-panel .panel-trigger {
+  left: -30px;
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+}
+
+/* Typography & Titles */
+h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--color-gold);
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(230, 197, 92, 0.2);
+  padding-bottom: 8px;
+  text-transform: uppercase;
+}
+
+label {
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: var(--color-gold-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Estilização dos inputs no painel esquerdo */
+.control-group {
+  margin-bottom: 24px;
+}
+
+select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(230, 197, 92, 0.3);
+  color: var(--color-text);
+  padding: 10px;
+  border-radius: 6px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+select:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 10px rgba(230, 197, 92, 0.2);
+}
+
+select option {
+  background: #0d0d0d;
+  color: var(--color-text);
+}
+
+/* Log de Chat no Painel Direito */
+#chat-log {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Custom Scrollbar */
+#chat-log::-webkit-scrollbar {
+  width: 4px;
+}
+#chat-log::-webkit-scrollbar-track {
+  background: transparent;
+}
+#chat-log::-webkit-scrollbar-thumb {
+  background: rgba(230, 197, 92, 0.2);
+  border-radius: 4px;
+}
+#chat-log::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
+
+.log-entry {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: 6px;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.log-entry.user {
+  background: rgba(230, 197, 92, 0.05);
+  border-left: 2px solid var(--color-gold);
+  align-self: flex-end;
+}
+
+.log-entry.agent {
+  background: rgba(30, 144, 255, 0.05);
+  border-left: 2px solid var(--color-speaking);
+  align-self: flex-start;
+}
+
+.log-entry.system {
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid var(--color-gold-dim);
+  color: #888;
+  font-style: italic;
+}
+
+/* Informações e Rodapé no Centro/Fundo */
+#center-info {
+  position: absolute;
+  bottom: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+  animation: pulseOpacity 3s infinite ease-in-out;
+}
+
+#center-info h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.4rem;
+  letter-spacing: 6px;
+  color: var(--color-gold);
+  text-shadow: 0 0 15px rgba(230, 197, 92, 0.3);
+  margin-bottom: 6px;
+}
+
+#center-info p {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: var(--color-gold-dim);
+  text-transform: uppercase;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* Indicadores de Status flutuantes no topo da tela */
+#top-indicator {
+  position: absolute;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--color-gold-dim);
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+#top-indicator.listening {
+  color: var(--color-active);
+  text-shadow: 0 0 10px var(--color-active-glow);
+}
+
+#top-indicator.speaking {
+  color: var(--color-speaking);
+  text-shadow: 0 0 10px var(--color-speaking-glow);
+}
