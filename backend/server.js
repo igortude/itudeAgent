@@ -36,7 +36,7 @@ app.get('/api/models', async (req, res) => {
 
 app.post('/api/greet', async (req, res) => {
   try {
-    const greeting = 'Como posso serví-lo, senhor?';
+    const greeting = 'Como posso servi-lo senhor?';
     console.log(`[WakeWord] Ativação detectada. Saudação: "${greeting}"`);
     const audioUrl = await ttsService.generateAudio(greeting);
     res.json({ reply: greeting, audioUrl });

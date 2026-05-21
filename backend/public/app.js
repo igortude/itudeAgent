@@ -36,7 +36,7 @@ const brainC=$('brain-canvas'), brainX=brainC.getContext('2d');
 let selectedModel='', activeCat='open';
 let audioCtx=null, userAn=null, iaAn=null, micStream=null, micSrc=null, iaSrc=null;
 let isIA=false, rot1=0, rot2=0, uVol=0, iVol=0, suVol=0, siVol=0, dnaA=0;
-let learnCat='', learnTarget='';
+let learnCat='', learnTarget='', isRecStarted=false;
 
 // ─── Canvas sizing ───
 let W=400, H=400;
@@ -77,7 +77,16 @@ function playAudio(url){
 
 function tryRestart(){
   if(state===S.DORMANT||modal.style.display==='flex'||isIA)return;
-  try{rec&&rec.start();}catch(e){}
+  if(isRecStarted)return;
+  try{
+    if(rec){
+      rec.start();
+      isRecStarted=true;
+    }
+  }catch(e){
+    console.log('[Speech] Reconhecimento em transição de desligamento. Tentando novamente em 300ms...');
+    setTimeout(tryRestart,300);
+  }
 }
 
 // ─── Audio Context ───
@@ -100,7 +109,11 @@ playerEl.addEventListener('error',()=>{ isIA=false; setState(S.PASSIVE); tryRest
 
 // ─── Recognition (always-on, state-filtered) ───
 if(rec){
-  rec.onend=()=>{ if(state!==S.DORMANT&&state!==S.PROCESSING&&state!==S.COMPOUND_EXEC&&state!==S.GREETING&&state!==S.COMPOUND_ASK&&!isIA&&modal.style.display!=='flex') setTimeout(tryRestart,150); };
+  rec.onstart=()=>{ isRecStarted=true; };
+  rec.onend=()=>{
+    isRecStarted=false;
+    if(state!==S.DORMANT&&state!==S.PROCESSING&&state!==S.COMPOUND_EXEC&&state!==S.GREETING&&state!==S.COMPOUND_ASK&&!isIA&&modal.style.display!=='flex') setTimeout(tryRestart,150);
+  };
   rec.onerror=(e)=>{ if(e.error==='not-allowed')log('ERRO: Microfone negado.'); else if(e.error!=='aborted')setTimeout(tryRestart,300); };
 
   rec.onresult=async(ev)=>{
@@ -186,7 +199,7 @@ btnModalSave.addEventListener('click',async()=>{
   }catch(e){log('ERRO ao gravar sinapse');}
 });
 
-btnModalCancel.addEventListener('click',()=>{ modal.style.display='none'; log('APRENDIZADO CANCELADO'); setState(S.PASSIVE); tryRestart(); });
+btnModalCancel.addEventListener('click',()=>{ modal.style.display='none'; log('APRENDIZADO CANCELADO'); setState(S.PASSIVE); setTimeout(tryRestart, 300); });
 modalInput.addEventListener('keydown',e=>{if(e.key==='Enter')btnModalSave.click();});
 
 // ─── Init: primeiro clique ativa tudo ou força escuta ───
