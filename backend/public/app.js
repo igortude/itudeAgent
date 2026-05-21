@@ -80,8 +80,6 @@ async function initAudio(){
   if(audioCtx)return;
   audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   userAn=audioCtx.createAnalyser(); userAn.fftSize=128;
-  iaAn=audioCtx.createAnalyser(); iaAn.fftSize=256;
-  iaSrc=audioCtx.createMediaElementSource(playerEl); iaSrc.connect(iaAn); iaAn.connect(audioCtx.destination);
   log('ÁUDIO INICIALIZADO');
 }
 
@@ -240,7 +238,42 @@ function drawDna(){const w=dnaC.width,h=dnaC.height;dnaX.clearRect(0,0,w,h);cons
 
 function drawBrain(){const w=brainC.width,h=brainC.height;brainX.clearRect(0,0,w,h);brainX.save();brainX.translate(w/2-120,0);for(let i=0;i<brainNodes.length;i++){const n=brainNodes[i];n.ph+=n.fr;const a=0.15+Math.sin(n.ph)*0.15;for(let j=i+1;j<brainNodes.length;j++){const m=brainNodes[j],d=Math.hypot(n.x-m.x,n.y-m.y);if(d<35){brainX.strokeStyle=`rgba(188,52,250,${a*(1-d/35)})`;brainX.lineWidth=0.5;brainX.beginPath();brainX.moveTo(n.x,n.y);brainX.lineTo(m.x,m.y);brainX.stroke();}}brainX.fillStyle=`hsla(280,85%,65%,${a+0.3})`;brainX.beginPath();brainX.arc(n.x,n.y,n.r+(siVol>10?siVol*0.05:0),0,Math.PI*2);brainX.fill();}brainX.restore();}
 
-function drawSpec(){const w=specC.width,h=specC.height;specX.clearRect(0,0,w,h);const an=(state===S.ACTIVE||state===S.COMPOUND_LISTEN)?userAn:isIA?iaAn:null;if(an){const buf=an.frequencyBinCount,da=new Uint8Array(buf);an.getByteFrequencyData(da);const bw=(w/buf)*2.5;let x=0;for(let i=0;i<buf;i++){const bh=(da[i]/255)*h;specX.fillStyle=`rgba(0,243,255,${bh/h+0.1})`;specX.fillRect(x,h-bh,bw-1,bh);x+=bw;}}else{specX.strokeStyle='rgba(0,243,255,0.15)';specX.beginPath();specX.moveTo(0,h/2);specX.lineTo(w,h/2);specX.stroke();}}
+function drawSpec(){
+  const w=specC.width,h=specC.height;
+  specX.clearRect(0,0,w,h);
+  if(state===S.ACTIVE||state===S.COMPOUND_LISTEN){
+    if(userAn){
+      const buf=userAn.frequencyBinCount,da=new Uint8Array(buf);
+      userAn.getByteFrequencyData(da);
+      const bw=(w/buf)*2.5;
+      let x=0;
+      for(let i=0;i<buf;i++){
+        const bh=(da[i]/255)*h;
+        specX.fillStyle=`rgba(0,243,255,${bh/h+0.1})`;
+        specX.fillRect(x,h-bh,bw-1,bh);
+        x+=bw;
+      }
+    }
+  } else if(isIA){
+    // Ondas procedimentais roxas neon para a voz da IA
+    const buf=64;
+    const bw=(w/buf)*2.5;
+    let x=0;
+    for(let i=0;i<buf;i++){
+      const factor=Math.sin(i*0.25+Date.now()*0.02)*0.5+0.5;
+      const bh=(factor*(siVol/100))*h*0.85;
+      specX.fillStyle=`rgba(188,52,250,${bh/h+0.15})`;
+      specX.fillRect(x,h-bh,bw-1,bh);
+      x+=bw;
+    }
+  } else {
+    specX.strokeStyle='rgba(0,243,255,0.15)';
+    specX.beginPath();
+    specX.moveTo(0,h/2);
+    specX.lineTo(w,h/2);
+    specX.stroke();
+  }
+}
 
 function drawHolo(){const cx=W/2,cy=H/2;ctx.fillStyle='rgba(3,4,15,0.15)';ctx.fillRect(0,0,W,H);const v=Math.max(suVol,siVol),sc=1+v*0.005;rot1+=0.005+v*0.0001;rot2-=0.003+v*0.0001;ctx.save();ctx.translate(cx,cy);ctx.scale(sc,sc);
 ctx.lineWidth=0.6;ctx.strokeStyle='rgba(0,243,255,0.1)';ctx.beginPath();ctx.arc(0,0,160,0,Math.PI*2);ctx.stroke();
@@ -255,7 +288,10 @@ ctx.restore();}
 
 (function loop(){requestAnimationFrame(loop);
 if(userAn&&(state===S.ACTIVE||state===S.COMPOUND_LISTEN)){const d=new Uint8Array(userAn.frequencyBinCount);userAn.getByteFrequencyData(d);uVol=d.reduce((a,b)=>a+b,0)/d.length;}else uVol*=0.9;
-if(iaAn&&isIA){const d=new Uint8Array(iaAn.frequencyBinCount);iaAn.getByteFrequencyData(d);iVol=d.reduce((a,b)=>a+b,0)/d.length;}else iVol*=0.9;
+if(isIA){
+  // Simular volume de voz alienígena de forma contínua
+  iVol=50+Math.sin(Date.now()*0.015)*18+Math.cos(Date.now()*0.008)*12;
+}else iVol*=0.9;
 suVol+=(uVol-suVol)*0.18;siVol+=(iVol-siVol)*0.18;
 drawDna();drawBrain();drawSpec();drawHolo();})();
 
