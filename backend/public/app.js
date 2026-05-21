@@ -15,7 +15,8 @@ let activeTimeout = null;
 // ─── STT ───
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
-if (SR) { rec = new SR(); rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = false; }
+if (SR) { rec = new SR(); rec.lang = 'pt-BR'; rec.continuous = false; rec.interimResults = false; }
+const WAKE_WORDS = ['anunaki', 'anunnaki', 'anunáqui', 'anonaki', 'anomalia', 'abominável'];
 
 // ─── DOM ───
 const $ = id => document.getElementById(id);
@@ -67,7 +68,7 @@ function playAudio(url){
 }
 
 function tryRestart(){
-  if(state===S.DORMANT||modal.style.display==='flex')return;
+  if(state===S.DORMANT||modal.style.display==='flex'||isIA)return;
   try{rec&&rec.start();}catch(e){}
 }
 
@@ -85,7 +86,7 @@ async function initAudio(){
 playerEl.addEventListener('play',()=>{ isIA=true; if(rec)try{rec.stop();}catch(e){} });
 playerEl.addEventListener('ended',()=>{
   isIA=false;
-  if(state===S.GREETING){ setState(S.ACTIVE); activeTimeout=setTimeout(()=>{if(state===S.ACTIVE){setState(S.PASSIVE);}},15000); tryRestart(); }
+  if(state===S.GREETING){ setState(S.ACTIVE); activeTimeout=setTimeout(()=>{if(state===S.ACTIVE){setState(S.PASSIVE);tryRestart();}},15000); tryRestart(); }
   else if(state===S.COMPOUND_ASK){ setState(S.COMPOUND_LISTEN); tryRestart(); }
   else{ setState(S.PASSIVE); tryRestart(); }
 });
@@ -93,18 +94,20 @@ playerEl.addEventListener('error',()=>{ isIA=false; setState(S.PASSIVE); tryRest
 
 // ─── Recognition (always-on, state-filtered) ───
 if(rec){
-  rec.onend=()=>{ if(state!==S.DORMANT&&state!==S.PROCESSING&&state!==S.COMPOUND_EXEC&&state!==S.GREETING&&state!==S.COMPOUND_ASK&&!isIA&&modal.style.display!=='flex') setTimeout(tryRestart,300); };
-  rec.onerror=(e)=>{ if(e.error==='not-allowed')log('ERRO: Microfone negado.'); else if(e.error!=='aborted')setTimeout(tryRestart,500); };
+  rec.onend=()=>{ if(state!==S.DORMANT&&state!==S.PROCESSING&&state!==S.COMPOUND_EXEC&&state!==S.GREETING&&state!==S.COMPOUND_ASK&&!isIA&&modal.style.display!=='flex') setTimeout(tryRestart,150); };
+  rec.onerror=(e)=>{ if(e.error==='not-allowed')log('ERRO: Microfone negado.'); else if(e.error!=='aborted')setTimeout(tryRestart,300); };
 
   rec.onresult=async(ev)=>{
     const text=ev.results[ev.results.length-1][0].transcript.trim();
     if(!text)return;
     const low=text.toLowerCase();
+    log(`TRANSCRIÇÃO: "${text}"`);
 
-    // ── PASSIVE: filtrar pela wake word ──
+    // ── PASSIVE: filtrar pelas wake word ──
     if(state===S.PASSIVE){
-      if(!low.includes(WAKE))return; // ignorar tudo que não for anunaki
-      const after=low.split(WAKE).pop().trim().replace(/^[,.\s]+/,'');
+      const matchedWake = WAKE_WORDS.find(w => low.includes(w));
+      if(!matchedWake)return; // ignorar tudo que não for anunaki
+      const after=low.split(matchedWake).pop().trim().replace(/^[,.\s]+/,'');
       if(rec)try{rec.stop();}catch(e){}
       if(after.length>3){ // "anunaki abra o chrome" → pular saudação
         setState(S.PROCESSING); chat('user',after); log(`COMANDO DIRETO: "${after.toUpperCase()}"`);
@@ -180,15 +183,25 @@ btnModalSave.addEventListener('click',async()=>{
 btnModalCancel.addEventListener('click',()=>{ modal.style.display='none'; log('APRENDIZADO CANCELADO'); setState(S.PASSIVE); tryRestart(); });
 modalInput.addEventListener('keydown',e=>{if(e.key==='Enter')btnModalSave.click();});
 
-// ─── Init: primeiro clique ativa tudo ───
+// ─── Init: primeiro clique ativa tudo ou força escuta ───
 async function activateAgent(){
-  if(state!==S.DORMANT)return;
   await initAudio();
   if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
-  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:true}); if(userAn){const s=audioCtx.createMediaStreamSource(micStream);s.connect(userAn);} }catch(e){log('ERRO: Microfone bloqueado.');}
-  setState(S.PASSIVE);
-  if(rec)try{rec.start();}catch(e){}
-  log('AGENTE ATIVADO — ESCUTA PASSIVA INICIADA'); chat('system','Agente ativado. Diga "Anunaki" para me invocar.');
+  
+  if(state===S.DORMANT){
+    try{ micStream=await navigator.mediaDevices.getUserMedia({audio:true}); if(userAn){const s=audioCtx.createMediaStreamSource(micStream);s.connect(userAn);} }catch(e){log('ERRO: Microfone bloqueado.');}
+    setState(S.PASSIVE);
+    if(rec)try{rec.start();}catch(e){}
+    log('AGENTE ATIVADO — ESCUTA PASSIVA INICIADA'); chat('system','Agente ativado. Diga "Anunaki" para me invocar.');
+  } else {
+    // Se já está ativo, forçar escuta ativa imediata
+    if(rec)try{rec.stop();}catch(e){}
+    setState(S.ACTIVE);
+    if(activeTimeout){clearTimeout(activeTimeout);}
+    activeTimeout=setTimeout(()=>{if(state===S.ACTIVE){setState(S.PASSIVE);tryRestart();}},15000);
+    setTimeout(tryRestart,100);
+    log('ESCUTA MANUAL ATIVADA'); chat('system','Escutando seu comando diretamente...');
+  }
 }
 
 if(micTrigger)micTrigger.addEventListener('click',activateAgent);
