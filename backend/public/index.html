@@ -205,6 +205,65 @@
       50% { opacity: 0.4; }
       100% { opacity: 1; }
     }
+
+    /* ═════════ COLLAPSIBLE PANELS ═════════ */
+    .col-toggle {
+      position: absolute;
+      z-index: 100;
+      width: 28px;
+      height: 28px;
+      background: rgba(0, 243, 255, 0.08);
+      border: 1px solid rgba(0, 243, 255, 0.3);
+      border-radius: 4px;
+      color: var(--neon-blue);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      opacity: 0.6;
+    }
+    .col-toggle:hover {
+      opacity: 1;
+      background: rgba(0, 243, 255, 0.15);
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+    }
+
+    #toggle-left { top: 85px; left: 6px; }
+    #toggle-right { top: 85px; right: 6px; }
+    #toggle-bottom { bottom: 6px; left: 50%; transform: translateX(-50%); }
+
+    .xenolytica-grid.hide-left {
+      grid-template-columns: 0px 1fr 340px;
+    }
+    .xenolytica-grid.hide-right {
+      grid-template-columns: 320px 1fr 0px;
+    }
+    .xenolytica-grid.hide-left.hide-right {
+      grid-template-columns: 0px 1fr 0px;
+    }
+    .xenolytica-grid.hide-bottom {
+      grid-template-rows: 70px 1fr 0px;
+    }
+
+    .xenolytica-grid.hide-left .left-col,
+    .xenolytica-grid.hide-right .right-col,
+    .xenolytica-grid.hide-bottom .bottom-row {
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      padding: 0;
+      margin: 0;
+      border: none;
+    }
+
+    .xenolytica-grid.hide-left .left-col *,
+    .xenolytica-grid.hide-right .right-col *,
+    .xenolytica-grid.hide-bottom .bottom-row * {
+      visibility: hidden;
+    }
   </style>
 </head>
 <body>
@@ -240,6 +299,11 @@
         </div>
       </div>
     </header>
+
+    <!-- Toggle Buttons para Recolher Painéis -->
+    <button class="col-toggle" id="toggle-left" title="Recolher/Expandir Painel Esquerdo">◀</button>
+    <button class="col-toggle" id="toggle-right" title="Recolher/Expandir Painel Direito">▶</button>
+    <button class="col-toggle" id="toggle-bottom" title="Recolher/Expandir Painel Inferior">▼</button>
 
     <!-- ═════════ LEFT COLUMN (Dados de Origem & Composição) ═════════ -->
     <aside class="left-col">
@@ -545,5 +609,29 @@
   </div>
 
   <script src="app.js"></script>
+  <script>
+    // ─── Collapsible Panels ───
+    const grid = document.querySelector('.xenolytica-grid');
+    document.getElementById('toggle-left').addEventListener('click', function() {
+      grid.classList.toggle('hide-left');
+      this.textContent = grid.classList.contains('hide-left') ? '▶' : '◀';
+    });
+    document.getElementById('toggle-right').addEventListener('click', function() {
+      grid.classList.toggle('hide-right');
+      this.textContent = grid.classList.contains('hide-right') ? '◀' : '▶';
+    });
+    document.getElementById('toggle-bottom').addEventListener('click', function() {
+      grid.classList.toggle('hide-bottom');
+      this.textContent = grid.classList.contains('hide-bottom') ? '▲' : '▼';
+    });
+
+    // ─── Fullscreen por Padrão ───
+    document.addEventListener('click', function autoFS() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      document.removeEventListener('click', autoFS);
+    }, { once: true });
+  </script>
 </body>
 </html>
