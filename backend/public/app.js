@@ -423,6 +423,10 @@ async function updateWeatherUI() {
       if (weatherEl) {
         weatherEl.textContent = `${data.temp}°C // ${data.desc.toUpperCase()} (${data.city.toUpperCase()})`;
       }
+      const envTempEl = document.getElementById('env-temp');
+      if (envTempEl) {
+        envTempEl.textContent = `${data.temp} °C`;
+      }
     }
   } catch (e) {
     console.error('Erro ao atualizar clima:', e);
