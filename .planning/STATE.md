@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** Prover uma experiência de interação por voz bidirecional e local em PT-BR fluida, envolvente e visualmente espetacular, que aprende de forma contínua com o usuário sem depender de APIs proprietárias pagas.
-**Current focus:** Phase 1: Core de Voz e Conexão Ollama
+**Current focus:** Phase 2: Interface Alienígena "Eternos"
 
 ## Current Position
 
-Phase: 1 of 3 (Core de Voz e Conexão Ollama)
-Plan: 0 of 3 in current phase
+Phase: 2 of 3 (Interface Alienígena "Eternos")
+Plan: 0 of 2 in current phase
 Status: Ready to plan
-Last activity: 2026-05-21 — Inicialização do projeto e comite da documentação de planejamento.
+Last activity: 2026-05-21 — Fase 1 Concluída. Transição para o planejamento da Fase 2.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -64,6 +64,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-21 10:30
-Stopped at: Inicialização de todos os artefatos de planejamento do ItudeAgent (.planning/).
+Last session: 2026-05-21 10:42
+Stopped at: Fase 1 executada e commitada. Iniciado planejamento da Fase 2.
 Resume file: None
